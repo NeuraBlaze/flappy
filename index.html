@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Haraszt Flappy - Retro Bird Game</title>
+    <style>
+      body { 
+        margin: 0; 
+        background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+        font-family: monospace;
+        overflow: hidden;
+      }
+      canvas { 
+        image-rendering: -moz-crisp-edges;
+        image-rendering: -webkit-crisp-edges;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

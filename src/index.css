@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pixel-perfect rendering */
+@layer base {
+  * {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Custom pixel fonts */
+@layer components {
+  .pixel-text {
+    font-family: monospace;
+    font-weight: bold;
+    text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+  }
+  
+  .pixel-button {
+    @apply pixel-text bg-pixel-dark text-white border-2 border-white;
+    @apply hover:bg-white hover:text-pixel-dark transition-colors duration-200;
+    @apply shadow-lg transform hover:scale-105 active:scale-95;
+  }
+  
+  .game-ui {
+    @apply absolute top-0 left-0 w-full h-full pointer-events-none;
+    @apply flex flex-col items-center justify-center;
+  }
+  
+  .score-display {
+    @apply pixel-text text-white text-4xl md:text-6xl;
+    @apply drop-shadow-lg z-10;
+  }
+}
