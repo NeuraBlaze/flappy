@@ -191,6 +191,34 @@ interface BirdSkin {
     extraLives?: number; // Extra életek száma
     canShoot?: boolean; // Tud-e lőni
     autoShield?: number; // Automatikus pajzs újratöltődés (sec)
+    
+    // Démoni Madár képességek
+    lifeSteal?: boolean; // Életlopás ütközésnél
+    darkAura?: number; // Sötét aura hatótávolság
+    shadowTeleport?: number; // Árnyék teleport használatok száma
+    
+    // Villám Madár képességek
+    lightningStrike?: number; // Villám csapás cooldown (sec)
+    electricField?: boolean; // Elektromos mező
+    chainLightning?: number; // Lánc villám max targets
+    
+    // Szupermadár képességek  
+    flyThroughWalls?: number; // Hányszor repülhet át akadályokon
+    superStrength?: boolean; // Akadályok összetörése ütközéskor
+    laserVision?: boolean; // Lézer látás
+    
+    // UFO Madár képességek
+    antiGravity?: boolean; // Anti-gravitáció
+    abductionBeam?: boolean; // Abdukciós sugár
+    warpSpeed?: number; // Warp jump használatok
+    
+    // Retro Gamer Madár képességek
+    pixelMode?: boolean; // Pixel art mód
+    powerUpMagnet?: boolean; // Automatikus power-up vonzás
+    
+    // Egyszarvú Madár képességek
+    magicHorn?: boolean; // Mágikus szarv akadály áttöréshez
+    hornCooldown?: number; // Szarv cooldown (sec)
   };
   description: string;
 }
@@ -330,6 +358,66 @@ export default function SzenyoMadar() {
       unlockRequirement: { type: "achievement", value: "high_flyer" },
       abilities: { canShoot: true, jumpPower: 1.15, shieldDuration: 1.3 },
       description: "Tud lőni az akadályokra!"
+    },
+    {
+      id: "demon",
+      name: "Démoni Madár",
+      emoji: "😈",
+      bodyColor: "#8B0000",
+      wingColor: "#FF0000",
+      unlockRequirement: { type: "score", value: 666 },
+      abilities: { lifeSteal: true, darkAura: 50, shadowTeleport: 3, extraLives: 1 },
+      description: "Sötét erők: életlopás és árnyék teleport!"
+    },
+    {
+      id: "lightning",
+      name: "Villám Madár",
+      emoji: "⚡",
+      bodyColor: "#FFD700",
+      wingColor: "#00BFFF",
+      unlockRequirement: { type: "achievement", value: "power_user" },
+      abilities: { lightningStrike: 10, electricField: true, chainLightning: 3, jumpPower: 1.1 },
+      description: "Villámgyors pusztítás elektromos erőkkel!"
+    },
+    {
+      id: "super",
+      name: "Szupermadár",
+      emoji: "🦸‍♂️",
+      bodyColor: "#FF0000",
+      wingColor: "#0000FF",
+      unlockRequirement: { type: "coins", value: 500 },
+      abilities: { flyThroughWalls: 5, superStrength: true, laserVision: true, extraLives: 2 },
+      description: "Szupererők: átrepülés és lézer látás!"
+    },
+    {
+      id: "ufo",
+      name: "UFO Madár",
+      emoji: "🛸",
+      bodyColor: "#C0C0C0",
+      wingColor: "#00FF00",
+      unlockRequirement: { type: "achievement", value: "coin_collector" },
+      abilities: { antiGravity: true, abductionBeam: true, warpSpeed: 5, gravity: 0.3 },
+      description: "Földönkívüli technológia és anti-gravitáció!"
+    },
+    {
+      id: "gamer",
+      name: "Retro Gamer Madár",
+      emoji: "🎮",
+      bodyColor: "#8A2BE2",
+      wingColor: "#FF1493",
+      unlockRequirement: { type: "score", value: 200 },
+      abilities: { pixelMode: true, extraLives: 9, powerUpMagnet: true, coinValue: 1.5 },
+      description: "Retro gaming: 9 élet és pixel art mód!"
+    },
+    {
+      id: "unicorn",
+      name: "Egyszarvú Madár",
+      emoji: "🦄",
+      bodyColor: "#FFB6C1",
+      wingColor: "#DDA0DD",
+      unlockRequirement: { type: "coins", value: 300 },
+      abilities: { magicHorn: true, hornCooldown: 20, shieldDuration: 1.5, jumpPower: 1.2 },
+      description: "Mágikus szarv 20 másodpercenként áttöri az akadályokat!"
     }
   ]);
 
@@ -376,6 +464,35 @@ export default function SzenyoMadar() {
     bullets: [] as {x: number, y: number, vx: number, vy: number, life: number}[], // bullets for rambo
     canShoot: false, // shooting ability
     shootCooldown: 0, // shooting cooldown
+    
+    // Új őrült képességek
+    // Démoni Madár
+    shadowTeleportsLeft: 0, // hátralevő teleportálások
+    darkAuraActive: false, // sötét aura aktív-e
+    
+    // Villám Madár
+    lightningCooldown: 0, // villám cooldown
+    electricFieldActive: false, // elektromos mező
+    
+    // Szupermadár
+    wallPhaseLeft: 0, // hátralevő fal átrepülések
+    laserActive: false, // lézer aktív
+    
+    // UFO Madár
+    warpJumpsLeft: 0, // hátralevő warp jumpok
+    antiGravActive: false, // anti-gravitáció aktív
+    abductionActive: false, // abdukciós sugár
+    
+    // Retro Gamer Madár  
+    pixelModeActive: false, // pixel art mód
+    powerUpMagnetActive: false, // automatikus power-up vonzás
+    
+    // Egyszarvú Madár
+    hornCooldown: 0, // szarv cooldown
+    hornActive: false, // szarv használható-e
+    
+    // Szupermadár
+    wallPhaseActive: false, // fal áthatolás állapot
   });
 
   // Valós FPS monitoring - mutatja a tényleges renderelési sebességet
@@ -486,10 +603,54 @@ export default function SzenyoMadar() {
       alert("🎉 Minden madár skin feloldva! Mario ❤️");
       setShowConsole(false);
       setConsoleInput("");
-    } else {
-      alert("❌ Ismeretlen parancs. Próbáld meg újra!");
     }
-  }, []);
+    // Extreme Bird unlock cheat codes
+    else if (cmd === "dracarys") {
+      setCoins(prev => prev + 200);
+      localStorage.setItem("szenyo_madar_coins", (coins + 200).toString());
+      alert("🔥 Démoni Madár képességek aktiválva! +200 érme");
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "area51") {
+      setCoins(prev => prev + 300);
+      localStorage.setItem("szenyo_madar_coins", (coins + 300).toString());
+      alert("🛸 UFO Madár feloldva! +300 érme az idegen technológiáért");
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "gamer") {
+      setCoins(prev => prev + 250);
+      localStorage.setItem("szenyo_madar_coins", (coins + 250).toString());
+      alert("🎮 Retro Gamer Madár power-up! +250 érme");
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "unicorn") {
+      setCoins(prev => prev + 400);
+      localStorage.setItem("szenyo_madar_coins", (coins + 400).toString());
+      alert("🦄 Egyszarvú mágikus erő! +400 érme");
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "thunderstorm") {
+      setBest(150);
+      localStorage.setItem("szenyo_madar_best", "150");
+      alert("⚡ Villám Madár villámcsapás! High score: 150");
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "superhero") {
+      setBest(200);
+      localStorage.setItem("szenyo_madar_best", "200");
+      alert("🦸‍♂️ Szupermadár képességek! High score: 200");
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else {
+      alert("❌ Ismeretlen parancs. Próbáld meg: szeretlekmario, dracarys, area51, gamer, unicorn, thunderstorm, superhero");
+    }
+  }, [coins]);
 
   // Weather rendszer
   const weather = useRef({
@@ -845,7 +1006,23 @@ export default function SzenyoMadar() {
       autoShieldTimer: currentSkin?.abilities.autoShield ? (currentSkin.abilities.autoShield * 60) : 0,
       bullets: [],
       canShoot: currentSkin?.abilities.canShoot || false,
-      shootCooldown: 0
+      shootCooldown: 0,
+      
+      // Initialize new abilities based on current skin
+      shadowTeleportsLeft: currentSkin?.abilities.shadowTeleport || 0,
+      darkAuraActive: currentSkin?.abilities.darkAura ? true : false,
+      lightningCooldown: 0,
+      electricFieldActive: currentSkin?.abilities.electricField || false,
+      wallPhaseLeft: currentSkin?.abilities.flyThroughWalls || 0,
+      laserActive: currentSkin?.abilities.laserVision || false,
+      warpJumpsLeft: currentSkin?.abilities.warpSpeed || 0,
+      antiGravActive: currentSkin?.abilities.antiGravity || false,
+      abductionActive: currentSkin?.abilities.abductionBeam || false,
+      pixelModeActive: currentSkin?.abilities.pixelMode || false,
+      powerUpMagnetActive: currentSkin?.abilities.powerUpMagnet || false,
+      hornCooldown: 0,
+      hornActive: currentSkin?.abilities.magicHorn || false,
+      wallPhaseActive: false
     };
     pipes.current = [];
     particles.current = [];
@@ -1203,6 +1380,119 @@ export default function SzenyoMadar() {
         }
       });
     });
+
+    // ⚡ VILLÁM MADÁR KÉPESSÉGEK ⚡
+    if (currentSkin.abilities.lightningStrike) {
+      if (b.lightningCooldown > 0) {
+        b.lightningCooldown--;
+      } else {
+        // Lightning strike every X seconds
+        b.lightningCooldown = (currentSkin.abilities.lightningStrike * 60);
+        // Destroy closest pipe with lightning
+        if (pipes.current.length > 0) {
+          const closestPipe = pipes.current.find(pipe => pipe.x > b.x);
+          if (closestPipe) {
+            pipes.current.splice(pipes.current.indexOf(closestPipe), 1);
+            createParticles(closestPipe.x + w.pipeW/2, closestPipe.top + w.gap/2, 15, '#FFFF00', 'explosion');
+            playSound(800, 0.3, 'hit');
+            setScore(prev => prev + 3); // Lightning bonus
+          }
+        }
+      }
+      
+      // Electric field damages nearby pipes
+      if (b.electricFieldActive) {
+        pipes.current.forEach((pipe, index) => {
+          const distance = Math.abs(pipe.x + w.pipeW/2 - b.x);
+          if (distance < 80) { // Electric field range
+            pipes.current.splice(index, 1);
+            createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 8, '#00FFFF', 'sparkle');
+            setScore(prev => prev + 1);
+          }
+        });
+      }
+    }
+
+    // 😈 DÉMONI MADÁR KÉPESSÉGEK 😈
+    if (currentSkin.abilities.darkAura && b.darkAuraActive) {
+      // Dark aura destroys nearby pipes
+      pipes.current.forEach((pipe, index) => {
+        const distance = Math.abs(pipe.x + w.pipeW/2 - b.x);
+        if (distance < (currentSkin.abilities.darkAura || 50)) {
+          pipes.current.splice(index, 1);
+          createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 10, '#8B0000', 'explosion');
+          playSound(150, 0.2, 'hit');
+          // Life steal: restore health if damaged
+          if (b.lives < b.maxLives) {
+            b.lives++;
+            createParticles(b.x, b.y, 5, '#FF0000', 'sparkle');
+          }
+        }
+      });
+    }
+
+    // 🦸‍♂️ SZUPERMADÁR KÉPESSÉGEK 🦸‍♂️
+    if (currentSkin.abilities.laserVision && b.laserActive) {
+      // Laser vision destroys pipes in front
+      pipes.current.forEach((pipe, index) => {
+        if (pipe.x > b.x && pipe.x < b.x + 100) {
+          pipes.current.splice(index, 1);
+          createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 12, '#FF0000', 'explosion');
+          playSound(600, 0.2, 'hit');
+          setScore(prev => prev + 2);
+        }
+      });
+    }
+
+    // 🛸 UFO MADÁR KÉPESSÉGEK 🛸
+    if (currentSkin.abilities.antiGravity && b.antiGravActive) {
+      // Override gravity for UFO
+      b.vy *= 0.95; // Slow down falling
+    }
+    
+    if (currentSkin.abilities.abductionBeam && b.abductionActive) {
+      // Abduction beam pulls pipes upward and destroys them
+      pipes.current.forEach((pipe, index) => {
+        const distance = Math.abs(pipe.x + w.pipeW/2 - b.x);
+        if (distance < 60) {
+          pipe.top -= 2; // Pull upward
+          if (pipe.top <= 0) {
+            pipes.current.splice(index, 1);
+            createParticles(pipe.x + w.pipeW/2, 50, 8, '#00FF00', 'sparkle');
+            setScore(prev => prev + 2);
+          }
+        }
+      });
+    }
+
+    // 🎮 RETRO GAMER MADÁR KÉPESSÉGEK 🎮
+    if (currentSkin.abilities.powerUpMagnet && b.powerUpMagnetActive) {
+      // Auto-collect power-ups and coins
+      powerUps.current.forEach(powerUp => {
+        const distance = Math.sqrt((powerUp.x - b.x) ** 2 + (powerUp.y - b.y) ** 2);
+        if (distance < 100) { // Extended magnet range
+          powerUp.x += (b.x - powerUp.x) * 0.3;
+          powerUp.y += (b.y - powerUp.y) * 0.3;
+        }
+      });
+      
+      gameCoins.current.forEach(coin => {
+        const distance = Math.sqrt((coin.x - b.x) ** 2 + (coin.y - b.y) ** 2);
+        if (distance < 100) {
+          coin.x += (b.x - coin.x) * 0.3;
+          coin.y += (b.y - coin.y) * 0.3;
+        }
+      });
+    }
+
+    // 🦄 EGYSZARVÚ MADÁR KÉPESSÉGEK 🦄
+    if (currentSkin.abilities.magicHorn) {
+      if (b.hornCooldown > 0) {
+        b.hornCooldown--;
+      } else {
+        b.hornActive = true;
+      }
+    }
     
     // Madár animáció frissítés (fix 60 FPS)
     b.animFrame += gameSpeed;
@@ -1410,8 +1700,39 @@ export default function SzenyoMadar() {
     // Coins localStorage mentés
     localStorage.setItem("szenyo_madar_coins", coins.toString());
     
+    // 🦸‍♂️ SZUPERMADÁR - Fal áthatolás logika
+    if (currentSkin.abilities.flyThroughWalls) {
+      if (b.wallPhaseLeft > 0) {
+        // Átlátszó és áthatoló állapot
+        b.wallPhaseLeft--;
+        if (b.wallPhaseLeft === 0) {
+          b.wallPhaseActive = false;
+        }
+      }
+    }
+
+    // 🦄 EGYSZARVÚ MADÁR - Szarv ütközés logika (ütközés előtt!)
+    if (currentSkin.abilities.magicHorn && b.hornActive) {
+      // Szarv áttöri az akadályokat
+      pipes.current.forEach((pipe, index) => {
+        if (b.x + b.r > pipe.x && b.x - b.r < pipe.x + w.pipeW) {
+          if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap) {
+            // Szarv áttöri a csövet
+            pipes.current.splice(index, 1);
+            createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 15, '#FF69B4', 'sparkle');
+            playSound(400, 0.3, 'hit');
+            setScore(prev => prev + 5); // Bonus unicorn horn points
+          }
+        }
+      });
+      
+      // Horn cooldown reset
+      b.hornActive = false;
+      b.hornCooldown = (currentSkin.abilities.hornCooldown || 1200); // 20 seconds at 60fps
+    }
+    
     // Ütközés ellenőrzés (enhanced with combinations and lives system)
-    const isInvulnerable = b.shield > 0 || b.rainbow > 0 || b.superMode > 0 || b.godMode > 0;
+    const isInvulnerable = b.shield > 0 || b.rainbow > 0 || b.superMode > 0 || b.godMode > 0 || (b.wallPhaseLeft > 0);
     if (!isInvulnerable && checkCollisions()) {
       playSound(150, 0.5, 'hit');
       createParticles(b.x, b.y, 12, '#FF4444', 'explosion');
@@ -3291,6 +3612,9 @@ export default function SzenyoMadar() {
   // Event handlerek
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const b = bird.current;
+      const currentSkin = birdSkins.current.find(skin => skin.id === selectedBirdSkin);
+      
       switch (e.code) {
         case 'Space':
         case 'ArrowUp':
@@ -3301,6 +3625,33 @@ export default function SzenyoMadar() {
         case 'KeyS':
           e.preventDefault();
           shoot();
+          break;
+        case 'KeyQ': // Demon Bird - Shadow Teleport
+          e.preventDefault();
+          if (currentSkin?.abilities.shadowTeleport && b.shadowTeleportsLeft > 0) {
+            b.shadowTeleportsLeft--;
+            b.y = Math.max(50, Math.min(world.current.h - 50, Math.random() * world.current.h));
+            createParticles(b.x, b.y, 15, '#8B0000', 'explosion');
+            playSound(400, 0.3, 'powerup');
+          }
+          break;
+        case 'KeyE': // Super Bird - Wall Phase
+          e.preventDefault();
+          if (currentSkin?.abilities.flyThroughWalls && b.wallPhaseLeft > 0) {
+            b.wallPhaseLeft = Math.min(b.wallPhaseLeft, 180); // 3 seconds max
+            b.wallPhaseActive = true;
+            createParticles(b.x, b.y, 10, '#0080FF', 'sparkle');
+            playSound(600, 0.2, 'powerup');
+          }
+          break;
+        case 'KeyF': // UFO Bird - Warp Speed
+          e.preventDefault();
+          if (currentSkin?.abilities.warpSpeed && b.warpJumpsLeft > 0) {
+            b.warpJumpsLeft--;
+            b.x += 150; // Quick forward movement
+            createParticles(b.x, b.y, 12, '#00FF00', 'trail');
+            playSound(800, 0.2, 'powerup');
+          }
           break;
         case 'KeyP':
           togglePause();
