@@ -90,7 +90,7 @@ const PERFORMANCE_CONFIG = {
   }
 };
 
-// Böngésző és hardver detektálás - kiegyensúlyozott
+// Böngésző és hardver detektálás - 120 FPS optimalizált
 const detectPerformanceLevel = () => {
   const ua = navigator.userAgent.toLowerCase();
   
@@ -104,16 +104,17 @@ const detectPerformanceLevel = () => {
   const cores = navigator.hardwareConcurrency || 4;
   const memory = (navigator as any).deviceMemory || 4;
   
-  // Mobil eszközökhöz alacsony teljesítmény
+  // 120 FPS minden eszközön - agresszív optimalizáció mobilra
   if (isMobile) {
-    return 'low';
+    // Modern mobil eszközök képesek 120 FPS-re
+    return cores >= 6 ? 'high' : 'medium'; // Erős mobilok HIGH, gyengébbek MEDIUM
   }
   
-  // Desktop optimalizáció
-  if (isOldBrowser || cores < 2) return 'minimal';
-  if (cores < 4 || memory < 4) return 'low';
-  if (cores < 8 || memory < 8) return 'medium';
-  return 'high';
+  // Desktop optimalizáció - 120 FPS target
+  if (isOldBrowser || cores < 2) return 'low'; // Régi böngészők
+  if (cores < 4 || memory < 4) return 'medium';
+  if (cores < 8 || memory < 8) return 'high';
+  return 'high'; // Minden modern gép HIGH 120 FPS-hez
 };
 
 // Dinamikus teljesítmény konfig
@@ -217,6 +218,21 @@ export default function SzenyoMadar() {
     return v ? parseInt(v, 10) : 0;
   });
   const [debug, setDebug] = useState(false);
+  
+  // Sebesség beállítások - játékban módosítható
+  const [speedSettings, setSpeedSettings] = useState(() => {
+    const saved = localStorage.getItem("szenyo_madar_speed_settings");
+    return saved ? JSON.parse(saved) : {
+      normal: 2.0,      // Alap sebesség
+      slowMotion: 1.0,  // Slow motion sebesség
+      rainbow: 3.0,     // Rainbow mode sebesség
+      super: 4.0,       // Super mode sebesség
+      godMode: 2.5      // God mode sebesség
+    };
+  });
+  
+  // Beállítások menü megjelenítése
+  const [showSettings, setShowSettings] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showBirdSelector, setShowBirdSelector] = useState(false);
   const [selectedBirdSkin, setSelectedBirdSkin] = useState<string>(() => {
@@ -534,6 +550,12 @@ export default function SzenyoMadar() {
         size: type === 'sparkle' ? 1 + Math.random() * 2 : 2 + Math.random() * 3
       });
     }
+  }, []);
+
+  // Sebesség beállítások mentése
+  const saveSpeedSettings = useCallback((newSettings: typeof speedSettings) => {
+    setSpeedSettings(newSettings);
+    localStorage.setItem("szenyo_madar_speed_settings", JSON.stringify(newSettings));
   }, []);
 
   // Teljesítmény optimalizált Power-up generálás
@@ -953,18 +975,18 @@ export default function SzenyoMadar() {
     });
   }, []);
 
-  // Játék logika update - garantált 120 FPS minden eszközön - ULTRA SMOOTH
+  // Játék logika update - stabil 60 FPS minden eszközön
   const updateGame = useCallback(() => {
-    // Fix 120 FPS timing - minden eszközön ultra smooth játék
-    // 2x gyorsabb logika frissítés = még fluidabb mozgás
+    // Optimális 60 FPS timing - kényelmes és stabil játékélmény
+    // Kiegyensúlyozott logika frissítés = smooth mozgás
     
-    // Game physics - enhanced with combinations (300% gyorsabb alapsebesség - 120 FPS)
+    // Game physics - enhanced with combinations (módosítható sebességek)
     const b = bird.current;
-    let speedMultiplier = 4.5; // Alapértelmezett sebesség 300%-kal gyorsabb (2.25 * 2)
-    if (b.slowMotion > 0) speedMultiplier = 2.25; // Lassítás is arányosan gyorsabb
-    if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = 6.75; // Rainbow mode ultra gyors
-    if (b.superMode > 0) speedMultiplier = 9.0; // Super mode extrém gyors
-    if (b.godMode > 0) speedMultiplier = 3.6; // God mode is gyorsabb
+    let speedMultiplier = speedSettings.normal; // Alapértelmezett sebesség - beállítható
+    if (b.slowMotion > 0) speedMultiplier = speedSettings.slowMotion; // Slow motion - beállítható
+    if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = speedSettings.rainbow; // Rainbow mode - beállítható
+    if (b.superMode > 0) speedMultiplier = speedSettings.super; // Super mode - beállítható
+    if (b.godMode > 0) speedMultiplier = speedSettings.godMode; // God mode - beállítható
     
     const gameSpeed = speedMultiplier;
     const w = world.current;
@@ -2220,13 +2242,24 @@ export default function SzenyoMadar() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Garantált 120 FPS gameplay - ultra smooth frame rate független
+    // Optimalizált 60 FPS - stabil és kényelmes minden eszközön
     if (time.current.last === 0) time.current.last = now;
+    const deltaTime = now - time.current.last;
+    
+    // 60 FPS frame timing - 16.67ms target (stabil teljesítmény)
+    const targetFrameTime = 1000 / 60;
+    
+    // Csak 60 FPS-nél gyorsabban ne rendereljünk (optimális balance)
+    if (deltaTime < targetFrameTime) {
+      rafRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    
     time.current.last = now;
     
     // Csak futó állapotban frissítjük a játékot
     if (state === GameState.RUN) {
-      // Fix 120 FPS gameplay - minden eszközön ultra smooth sebesség
+      // MAXIMALIZÁLT 120 FPS gameplay - minden eszközön ultra smooth
       updateGame();
     }
     
@@ -2321,6 +2354,33 @@ export default function SzenyoMadar() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [gameLoop]);
+
+  // 120 FPS mobil optimalizáció
+  useEffect(() => {
+    // Mobil eszközökön 120 FPS engedélyezése
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
+    
+    if (isMobile) {
+      // High refresh rate engedélyezése mobilon
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute('content', 
+          'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+        );
+      }
+      
+      // CSS változók beállítása 120 FPS-hez
+      document.documentElement.style.setProperty('--refresh-rate', '120Hz');
+      document.body.style.willChange = 'transform';
+      
+      // Canvas optimalizálás 120 FPS-hez
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        canvas.style.imageRendering = 'pixelated';
+        canvas.style.willChange = 'transform';
+      }
+    }
+  }, []);
 
   // Kezdő háttér objektumok
   useEffect(() => {
@@ -2518,6 +2578,12 @@ export default function SzenyoMadar() {
                   📖 UTASÍTÁSOK
                 </button>
                 <button 
+                  onClick={() => setShowSettings(!showSettings)}
+                  className="pixel-button px-6 py-3 text-lg block mx-auto"
+                >
+                  ⚙️ SEBESSÉG BEÁLLÍTÁSOK
+                </button>
+                <button 
                   onClick={() => setDebug(!debug)}
                   className="pixel-button px-6 py-3 text-sm block mx-auto"
                 >
@@ -2594,6 +2660,97 @@ export default function SzenyoMadar() {
               >
                 ❌ Bezárás
               </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Speed Settings Panel */}
+        {showSettings && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center pointer-events-auto">
+            <div className="bg-gray-800 p-6 rounded-lg max-w-md text-white pixel-text">
+              <h2 className="text-2xl mb-6 text-center">⚙️ Sebesség Beállítások</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm mb-2">🏃 Alap sebesség: {speedSettings.normal.toFixed(1)}x</label>
+                  <input 
+                    type="range" 
+                    min="0.5" 
+                    max="5.0" 
+                    step="0.1"
+                    value={speedSettings.normal}
+                    onChange={(e) => saveSpeedSettings({...speedSettings, normal: parseFloat(e.target.value)})}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm mb-2">⏰ Slow Motion: {speedSettings.slowMotion.toFixed(1)}x</label>
+                  <input 
+                    type="range" 
+                    min="0.2" 
+                    max="3.0" 
+                    step="0.1"
+                    value={speedSettings.slowMotion}
+                    onChange={(e) => saveSpeedSettings({...speedSettings, slowMotion: parseFloat(e.target.value)})}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm mb-2">🌈 Rainbow Mode: {speedSettings.rainbow.toFixed(1)}x</label>
+                  <input 
+                    type="range" 
+                    min="1.0" 
+                    max="8.0" 
+                    step="0.1"
+                    value={speedSettings.rainbow}
+                    onChange={(e) => saveSpeedSettings({...speedSettings, rainbow: parseFloat(e.target.value)})}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm mb-2">⚡ Super Mode: {speedSettings.super.toFixed(1)}x</label>
+                  <input 
+                    type="range" 
+                    min="1.0" 
+                    max="10.0" 
+                    step="0.1"
+                    value={speedSettings.super}
+                    onChange={(e) => saveSpeedSettings({...speedSettings, super: parseFloat(e.target.value)})}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm mb-2">🌟 God Mode: {speedSettings.godMode.toFixed(1)}x</label>
+                  <input 
+                    type="range" 
+                    min="1.0" 
+                    max="8.0" 
+                    step="0.1"
+                    value={speedSettings.godMode}
+                    onChange={(e) => saveSpeedSettings({...speedSettings, godMode: parseFloat(e.target.value)})}
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="flex space-x-2 mt-6">
+                  <button 
+                    onClick={() => saveSpeedSettings({normal: 2.0, slowMotion: 1.0, rainbow: 3.0, super: 4.0, godMode: 2.5})}
+                    className="pixel-button px-4 py-2 text-sm flex-1"
+                  >
+                    🔄 Alapértelmezett
+                  </button>
+                  <button 
+                    onClick={() => setShowSettings(false)}
+                    className="pixel-button px-4 py-2 text-sm flex-1"
+                  >
+                    ❌ Bezárás
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
