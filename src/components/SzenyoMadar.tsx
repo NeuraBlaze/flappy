@@ -47,6 +47,40 @@ interface AnimationData {
 }
 
 // Particle típusok
+// Teljesítmény optimalizáció konstansok
+const PERFORMANCE_CONFIG = {
+  // Alapértelmezett beállítások
+  default: {
+    maxParticles: 150,
+    maxPowerUps: 8,
+    maxCoins: 10,
+    animationInterval: 1000 / 60, // 60 FPS target
+    reducedEffects: false,
+    simplifiedRendering: false
+  },
+  
+  // Opera böngésző optimalizációk
+  opera: {
+    maxParticles: 80,
+    maxPowerUps: 5,
+    maxCoins: 6,
+    animationInterval: 1000 / 45, // 45 FPS Opera-hoz
+    reducedEffects: true,
+    simplifiedRendering: true
+  }
+};
+
+// Böngésző detektálás
+const isOpera = () => {
+  return (navigator.userAgent.indexOf("Opera") !== -1 || 
+          navigator.userAgent.indexOf("OPR") !== -1);
+};
+
+// Dinamikus teljesítmény konfig
+const getPerfConfig = () => {
+  return isOpera() ? PERFORMANCE_CONFIG.opera : PERFORMANCE_CONFIG.default;
+};
+
 interface Particle {
   x: number;
   y: number;
@@ -250,6 +284,10 @@ export default function SzenyoMadar() {
     comboWindow: 0, // time window for combinations
   });
 
+  // Teljesítmény monitoring
+  const [fps, setFps] = useState(60);
+  const fpsCounter = useRef({ frames: 0, lastTime: performance.now() });
+
   // Akadályok (csövek / háztömbök)
   const pipes = useRef<{ x: number; top: number; passed: boolean; type: string; biome: string }[]>([]);
   
@@ -427,10 +465,21 @@ export default function SzenyoMadar() {
     oscillator.stop(now + duration);
   }, []);
 
-  // Részecske létrehozás
+  // Teljesítmény optimalizált részecske létrehozás
   const createParticles = useCallback((x: number, y: number, count: number, color: string, type: 'explosion' | 'trail' | 'sparkle' = 'explosion') => {
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const perfConfig = getPerfConfig();
+    
+    // Opera esetén csökkentett részecske szám
+    const adjustedCount = perfConfig.reducedEffects ? Math.max(1, Math.floor(count * 0.6)) : count;
+    
+    // Részecske limit ellenőrzés
+    if (particles.current.length >= perfConfig.maxParticles) {
+      // Régi részecskék eltávolítása
+      particles.current = particles.current.slice(-Math.floor(perfConfig.maxParticles * 0.7));
+    }
+    
+    for (let i = 0; i < adjustedCount; i++) {
+      const angle = (Math.PI * 2 * i) / adjustedCount + Math.random() * 0.5;
       const speed = type === 'trail' ? 0.5 + Math.random() * 1 : 2 + Math.random() * 3;
       
       particles.current.push({
@@ -446,12 +495,13 @@ export default function SzenyoMadar() {
     }
   }, []);
 
-  // Power-up generálás - biome bonus-szal
+  // Teljesítmény optimalizált Power-up generálás
   const spawnPowerUp = useCallback(() => {
+    const perfConfig = getPerfConfig();
     const biomeBonus = currentBiome.current.powerUpBonus;
     const adjustedRate = 0.003 * biomeBonus;
     
-    if (powerUps.current.length < 2 && Math.random() < adjustedRate) {
+    if (powerUps.current.length < perfConfig.maxPowerUps && Math.random() < adjustedRate) {
       const types: ('shield' | 'slow' | 'score' | 'magnet' | 'double' | 'rainbow')[] = 
         ['shield', 'slow', 'score', 'magnet', 'double', 'rainbow'];
       powerUps.current.push({
@@ -465,8 +515,11 @@ export default function SzenyoMadar() {
   }, []);
 
   // Érme generálás
+  // Teljesítmény optimalizált Coin generálás
   const spawnCoin = useCallback(() => {
-    if (gameCoins.current.length < 3 && Math.random() < 0.008) {
+    const perfConfig = getPerfConfig();
+    
+    if (gameCoins.current.length < perfConfig.maxCoins && Math.random() < 0.008) {
       gameCoins.current.push({
         x: world.current.w + 20,
         y: 80 + Math.random() * (world.current.h - world.current.groundH - 160),
@@ -477,14 +530,18 @@ export default function SzenyoMadar() {
     }
   }, []);
 
-  // Weather effektek generálása
+  // Teljesítmény optimalizált Weather effektek generálása
   const spawnWeatherParticles = useCallback(() => {
     const w = world.current;
     const weatherData = weather.current;
+    const perfConfig = getPerfConfig();
     
     if (weatherData.type === 'clear') return;
     
-    const spawnRate = weatherData.intensity * 0.1;
+    // Opera esetén csökkentett időjárás intenzitás
+    const adjustedIntensity = perfConfig.reducedEffects ? weatherData.intensity * 0.5 : weatherData.intensity;
+    const spawnRate = adjustedIntensity * 0.1;
+    
     if (Math.random() < spawnRate) {
       let particle: Particle;
       
@@ -859,6 +916,15 @@ export default function SzenyoMadar() {
     
     time.current.frameCount++;
     
+    // FPS számítás teljesítmény monitoringhoz
+    fpsCounter.current.frames++;
+    const currentTime = performance.now();
+    if (currentTime - fpsCounter.current.lastTime >= 1000) {
+      setFps(fpsCounter.current.frames);
+      fpsCounter.current.frames = 0;
+      fpsCounter.current.lastTime = currentTime;
+    }
+    
     // Madár fizika és animáció - skin abilities
     const currentSkin = getCurrentBirdSkin();
     const gravityMultiplier = currentSkin.abilities.gravity || 1.0;
@@ -1093,13 +1159,12 @@ export default function SzenyoMadar() {
     ctx.save();
     ctx.translate(shakeX, shakeY);
     
-    // Háttér gradiens - biome és weather alapú variációk
-    const gradient = ctx.createLinearGradient(0, 0, 0, w.h);
+    // Teljesítmény optimalizált háttér renderelés
+    const perfConfig = getPerfConfig();
     const biome = currentBiome.current;
-    
-    // Biome based colors, modified by weather
     let colors = [...biome.backgroundColors];
     
+    // Weather color modifications
     switch (weather.current.type) {
       case 'rain':
         colors = colors.map(c => darkenColor(c, 0.3));
@@ -1118,11 +1183,19 @@ export default function SzenyoMadar() {
         break;
     }
     
-    gradient.addColorStop(0, colors[0]);
-    gradient.addColorStop(0.5, colors[1]);
-    gradient.addColorStop(1, colors[2]);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, w.w, w.h);
+    // Opera esetén egyszerűsített háttér - gradient nélkül
+    if (perfConfig.simplifiedRendering) {
+      ctx.fillStyle = colors[1]; // Középső szín használata
+      ctx.fillRect(0, 0, w.w, w.h);
+    } else {
+      // Teljes gradient háttér
+      const gradient = ctx.createLinearGradient(0, 0, 0, w.h);
+      gradient.addColorStop(0, colors[0]);
+      gradient.addColorStop(0.5, colors[1]);
+      gradient.addColorStop(1, colors[2]);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, w.w, w.h);
+    }
     
     // Helper functions for color manipulation
     function darkenColor(hex: string, amount: number): string {
@@ -1210,15 +1283,19 @@ export default function SzenyoMadar() {
           // Cyber-city ablakok
           if (pipe.biome === 'city') {
             ctx.fillStyle = '#00FFFF';
+            const perfConfig = getPerfConfig();
+            
             for (let y = 10; y < pipe.top - 10; y += 20) {
               for (let x = pipe.x + 5; x < pipe.x + w.pipeW - 5; x += 15) {
                 if (Math.random() < 0.8) {
                   ctx.fillRect(x, y, 8, 12);
-                  // Neon glow effect
-                  ctx.shadowColor = '#00FFFF';
-                  ctx.shadowBlur = 5;
-                  ctx.fillRect(x, y, 8, 12);
-                  ctx.shadowBlur = 0;
+                  // Opera esetén neon glow mellőzése
+                  if (!perfConfig.simplifiedRendering) {
+                    ctx.shadowColor = '#00FFFF';
+                    ctx.shadowBlur = 5;
+                    ctx.fillRect(x, y, 8, 12);
+                    ctx.shadowBlur = 0;
+                  }
                 }
               }
             }
@@ -1226,10 +1303,12 @@ export default function SzenyoMadar() {
               for (let x = pipe.x + 5; x < pipe.x + w.pipeW - 5; x += 15) {
                 if (Math.random() < 0.8) {
                   ctx.fillRect(x, y, 8, 12);
-                  ctx.shadowColor = '#00FFFF';
-                  ctx.shadowBlur = 5;
-                  ctx.fillRect(x, y, 8, 12);
-                  ctx.shadowBlur = 0;
+                  if (!perfConfig.simplifiedRendering) {
+                    ctx.shadowColor = '#00FFFF';
+                    ctx.shadowBlur = 5;
+                    ctx.fillRect(x, y, 8, 12);
+                    ctx.shadowBlur = 0;
+                  }
                 }
               }
             }
@@ -1318,12 +1397,19 @@ export default function SzenyoMadar() {
           // Űrállomás alagút/átjáró (csak űr biome esetén)
           if (pipe.biome === 'space') {
             // Űrállomás alagút metalikus megjelenéssel
-            const gradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + w.pipeW, 0);
-            gradient.addColorStop(0, '#2F4F4F');
-            gradient.addColorStop(0.5, '#708090');
-            gradient.addColorStop(1, '#2F4F4F');
+            const perfConfig = getPerfConfig();
             
-            ctx.fillStyle = gradient;
+            // Opera esetén egyszerűsített gradient
+            if (perfConfig.simplifiedRendering) {
+              ctx.fillStyle = '#708090';
+            } else {
+              const gradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + w.pipeW, 0);
+              gradient.addColorStop(0, '#2F4F4F');
+              gradient.addColorStop(0.5, '#708090');
+              gradient.addColorStop(1, '#2F4F4F');
+              ctx.fillStyle = gradient;
+            }
+            
             ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
             ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
             
@@ -1331,18 +1417,22 @@ export default function SzenyoMadar() {
             ctx.fillStyle = '#1E90FF';
             for (let y = 10; y < pipe.top - 10; y += 25) {
               ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
-              // Glow effect
-              ctx.shadowColor = '#1E90FF';
-              ctx.shadowBlur = 8;
-              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
-              ctx.shadowBlur = 0;
+              // Opera esetén glow effect mellőzése
+              if (!perfConfig.simplifiedRendering) {
+                ctx.shadowColor = '#1E90FF';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
+                ctx.shadowBlur = 0;
+              }
             }
             for (let y = pipe.top + w.gap + 10; y < w.h - w.groundH - 10; y += 25) {
               ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
-              ctx.shadowColor = '#1E90FF';
-              ctx.shadowBlur = 8;
-              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
-              ctx.shadowBlur = 0;
+              if (!perfConfig.simplifiedRendering) {
+                ctx.shadowColor = '#1E90FF';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
+                ctx.shadowBlur = 0;
+              }
             }
             
             // Metalikus szegélyek
@@ -2214,7 +2304,7 @@ export default function SzenyoMadar() {
       
       {/* UI Overlay */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Score */}
+        {/* Score és FPS */}
         {state === GameState.RUN && (
           <div className="absolute top-8 left-1/2 transform -translate-x-1/2">
             <div className="score-display">
@@ -2225,6 +2315,13 @@ export default function SzenyoMadar() {
               <div className="text-yellow-400 text-lg font-bold">
                 🪙 {coins}
               </div>
+              
+              {/* FPS Monitor (Opera optimalizáció esetén) */}
+              {isOpera() && (
+                <div className="text-cyan-400 text-sm font-mono">
+                  FPS: {fps}
+                </div>
+              )}
               
               {/* Active effects */}
               <div className="flex justify-center gap-2 mt-1">
