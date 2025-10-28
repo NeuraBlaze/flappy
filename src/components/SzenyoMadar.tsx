@@ -59,12 +59,12 @@ const PERFORMANCE_CONFIG = {
     simplifiedRendering: false
   },
   
-  // Opera böngésző optimalizációk
+  // Opera böngésző optimalizációk - enyhébb limitek a gameplay érdekében
   opera: {
-    maxParticles: 80,
-    maxPowerUps: 5,
-    maxCoins: 6,
-    animationInterval: 1000 / 45, // 45 FPS Opera-hoz
+    maxParticles: 100,
+    maxPowerUps: 6, // Növelve 5-ről 6-ra
+    maxCoins: 8,    // Növelve 6-ról 8-ra
+    animationInterval: 1000 / 50, // 50 FPS Opera-hoz
     reducedEffects: true,
     simplifiedRendering: true
   }
@@ -499,7 +499,13 @@ export default function SzenyoMadar() {
   const spawnPowerUp = useCallback(() => {
     const perfConfig = getPerfConfig();
     const biomeBonus = currentBiome.current.powerUpBonus;
-    const adjustedRate = 0.003 * biomeBonus;
+    
+    // Növelt spawn rate Opera esetén is
+    const baseRate = 0.003;
+    const adjustedRate = baseRate * biomeBonus;
+    
+    // Aktív power-up-ok tisztítása (eltűnt objektumok)
+    powerUps.current = powerUps.current.filter(p => p.x > -50 && !p.collected);
     
     if (powerUps.current.length < perfConfig.maxPowerUps && Math.random() < adjustedRate) {
       const types: ('shield' | 'slow' | 'score' | 'magnet' | 'double' | 'rainbow')[] = 
@@ -519,7 +525,13 @@ export default function SzenyoMadar() {
   const spawnCoin = useCallback(() => {
     const perfConfig = getPerfConfig();
     
-    if (gameCoins.current.length < perfConfig.maxCoins && Math.random() < 0.008) {
+    // Aktív coin-ok tisztítása (eltűnt objektumok)
+    gameCoins.current = gameCoins.current.filter(c => c.x > -50 && !c.collected);
+    
+    // Növelt spawn rate jobb gameplay érdekében
+    const spawnRate = 0.01; // Növelve 0.008-ról 0.01-re
+    
+    if (gameCoins.current.length < perfConfig.maxCoins && Math.random() < spawnRate) {
       gameCoins.current.push({
         x: world.current.w + 20,
         y: 80 + Math.random() * (world.current.h - world.current.groundH - 160),
@@ -978,9 +990,15 @@ export default function SzenyoMadar() {
     // Távoli csövek törlése
     pipes.current = pipes.current.filter(pipe => pipe.x > -w.pipeW);
     
-    // Power-upok update
+    // Power-upok update és debug info
     spawnPowerUp();
     spawnCoin();
+    
+    // Debug: spawn info minden 5 másodpercben
+    if (debug && time.current.frameCount % 300 === 0) {
+      console.log(`Spawn Status - PowerUps: ${powerUps.current.length}/${getPerfConfig().maxPowerUps}, Coins: ${gameCoins.current.length}/${getPerfConfig().maxCoins}`);
+    }
+    
     powerUps.current.forEach(powerUp => {
       if (!powerUp.collected) {
         powerUp.x -= w.speed * gameSpeed * 0.7;
@@ -2320,6 +2338,14 @@ export default function SzenyoMadar() {
               {isOpera() && (
                 <div className="text-cyan-400 text-sm font-mono">
                   FPS: {fps}
+                </div>
+              )}
+              
+              {/* Debug Spawn Info */}
+              {debug && (
+                <div className="text-white text-xs font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
+                  PowerUps: {powerUps.current.length}/{getPerfConfig().maxPowerUps} | 
+                  Coins: {gameCoins.current.length}/{getPerfConfig().maxCoins}
                 </div>
               )}
               
