@@ -2391,12 +2391,10 @@ export default function SzenyoMadar() {
                 🪙 {coins}
               </div>
               
-              {/* Performance Monitor (alacsony teljesítmény esetén) */}
-              {(detectPerformanceLevel() === 'low' || detectPerformanceLevel() === 'minimal') && (
-                <div className="text-cyan-400 text-sm font-mono">
-                  FPS: {fps} | {detectPerformanceLevel().toUpperCase()}
-                </div>
-              )}
+              {/* FPS Monitor - mindig látható */}
+              <div className="text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
+                FPS: {fps} | {detectPerformanceLevel().toUpperCase()}
+              </div>
               
               {/* Debug Spawn Info */}
               {debug && (
@@ -2494,6 +2492,9 @@ export default function SzenyoMadar() {
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
             <div className="pixel-text text-white text-6xl animate-pulse">⏸</div>
             <div className="pixel-text text-white text-xl text-center mt-4">SZÜNET</div>
+            <div className="text-cyan-400 text-sm font-mono text-center mt-2 bg-black bg-opacity-50 px-2 py-1 rounded">
+              FPS: {fps} | {detectPerformanceLevel().toUpperCase()}
+            </div>
           </div>
         )}
         
@@ -2547,6 +2548,9 @@ export default function SzenyoMadar() {
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
                   {getPerfConfig().maxParticles} részecske limit
+                </div>
+                <div className="text-cyan-400 text-sm font-mono mt-1">
+                  FPS: {fps}/60
                 </div>
               </div>
               
@@ -2748,6 +2752,11 @@ export default function SzenyoMadar() {
             P = Szünet | D = Debug
           </div>
         )}
+        
+        {/* FPS kijelző - jobb felső sarok */}
+        <div className="absolute top-4 right-4 text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
+          FPS: {fps}
+        </div>
       </div>
     </div>
   );
