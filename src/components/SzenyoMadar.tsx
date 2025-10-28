@@ -47,14 +47,13 @@ interface AnimationData {
 }
 
 // Particle típusok
-// Adaptív teljesítmény optimalizáció konstansok
+// Kiegyensúlyozott teljesítmény optimalizáció konstansok
 const PERFORMANCE_CONFIG = {
   // Nagy teljesítmény - erős gépek
   high: {
-    maxParticles: 200,
-    maxPowerUps: 10,
-    maxCoins: 12,
-    animationInterval: 1000 / 60, // 60 FPS target
+    maxParticles: 150,
+    maxPowerUps: 8,
+    maxCoins: 10,
     reducedEffects: false,
     simplifiedRendering: false,
     weatherIntensity: 1.0
@@ -62,10 +61,9 @@ const PERFORMANCE_CONFIG = {
   
   // Közepes teljesítmény - átlagos gépek
   medium: {
-    maxParticles: 120,
-    maxPowerUps: 8,
-    maxCoins: 10,
-    animationInterval: 1000 / 50, // 50 FPS target
+    maxParticles: 100,
+    maxPowerUps: 6,
+    maxCoins: 8,
     reducedEffects: false,
     simplifiedRendering: false,
     weatherIntensity: 0.8
@@ -74,79 +72,47 @@ const PERFORMANCE_CONFIG = {
   // Alacsony teljesítmény - gyenge gépek/böngészők
   low: {
     maxParticles: 60,
-    maxPowerUps: 6,
-    maxCoins: 8,
-    animationInterval: 1000 / 45, // 45 FPS target
+    maxPowerUps: 5,
+    maxCoins: 6,
     reducedEffects: true,
     simplifiedRendering: true,
-    weatherIntensity: 0.5
+    weatherIntensity: 0.6
   },
   
   // Minimális teljesítmény - nagyon gyenge gépek
   minimal: {
-    maxParticles: 20,
-    maxPowerUps: 3,
-    maxCoins: 4,
-    animationInterval: 1000 / 30, // 30 FPS target
+    maxParticles: 40,
+    maxPowerUps: 4,
+    maxCoins: 5,
     reducedEffects: true,
     simplifiedRendering: true,
     weatherIntensity: 0.2
-  },
-  
-  // Ultra-light mód - mobilokra optimalizálva
-  ultraLight: {
-    maxParticles: 10,
-    maxPowerUps: 2,
-    maxCoins: 3,
-    animationInterval: 1000 / 25, // 25 FPS target
-    reducedEffects: true,
-    simplifiedRendering: true,
-    weatherIntensity: 0.1,
-    disableWeather: true,
-    disableBackgroundObjects: true
   }
 };
 
-// Böngésző és hardver detektálás
+// Böngésző és hardver detektálás - kiegyensúlyozott
 const detectPerformanceLevel = () => {
   const ua = navigator.userAgent.toLowerCase();
   
-  // Mobil eszköz detektálás - részletesebb
+  // Mobil eszköz detektálás
   const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
-  const isTablet = /ipad|android(?=.*tablet)|tablet/i.test(ua);
-  const isPhone = isMobile && !isTablet;
-  
-  // Régi/gyenge mobil eszközök detektálása
-  const isOldMobile = /android 4|android 5|iphone os [4-9]|old webkit/i.test(ua);
   
   // Böngésző típusok
   const isOldBrowser = ua.includes('msie') || ua.includes('trident');
-  const isSafari = ua.includes('safari') && !ua.includes('chrome');
-  const isFirefox = ua.includes('firefox');
   
-  // Hardver info
-  const cores = navigator.hardwareConcurrency || 2;
+  // Hardver info (ha elérhető)
+  const cores = navigator.hardwareConcurrency || 4;
   const memory = (navigator as any).deviceMemory || 4;
   
-  // Screen size alapú detektálás (kis képernyő = mobil)
-  const isSmallScreen = window.innerWidth < 768 || window.innerHeight < 600;
-  
-  // Touch support detektálás
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  
-  // Agresszív mobil optimalizáció
-  if (isPhone || isOldMobile || (isMobile && (cores < 4 || memory < 3))) {
-    return 'ultraLight';
-  }
-  
-  if (isMobile || isTablet || (isTouchDevice && isSmallScreen)) {
-    return 'minimal';
+  // Mobil eszközökhöz alacsony teljesítmény
+  if (isMobile) {
+    return 'low';
   }
   
   // Desktop optimalizáció
-  if (isOldBrowser || (cores < 4 && memory < 4)) return 'minimal';
-  if (isSafari || isFirefox || cores < 8 || memory < 8) return 'low';
-  if (cores < 12 || memory < 16) return 'medium';
+  if (isOldBrowser || cores < 2) return 'minimal';
+  if (cores < 4 || memory < 4) return 'low';
+  if (cores < 8 || memory < 8) return 'medium';
   return 'high';
 };
 
@@ -623,8 +589,8 @@ export default function SzenyoMadar() {
     const weatherData = weather.current;
     const perfConfig = getPerfConfig();
     
-    // Ultra-light módban időjárás kikapcsolva
-    if ((perfConfig as any).disableWeather || weatherData.type === 'clear') return;
+    // Ha nincs időjárás vagy letiltott, ne hozzunk létre részecskéket
+    if (weatherData.type === 'clear') return;
     
     // Adaptív időjárás intenzitás a teljesítmény szint alapján
     const adjustedIntensity = weatherData.intensity * (perfConfig.weatherIntensity || 1.0);
@@ -1155,15 +1121,12 @@ export default function SzenyoMadar() {
     if (b.megaMode > 0) b.megaMode--;
     if (b.godMode > 0) b.godMode--;
     
-    // Háttér objektumok - csak ha engedélyezve van
-    const perfConfigUpdate = getPerfConfig();
-    if (!(perfConfigUpdate as any).disableBackgroundObjects) {
-      spawnBackgroundObject();
-      bgObjects.current.forEach(obj => {
-        obj.x -= obj.speed * gameSpeed;
-      });
-      bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
-    }
+    // Háttér objektumok
+    spawnBackgroundObject();
+    bgObjects.current.forEach(obj => {
+      obj.x -= obj.speed * gameSpeed;
+    });
+    bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
     
     spawnWeatherParticles(); // Weather effektek
     
@@ -1207,8 +1170,7 @@ export default function SzenyoMadar() {
       weather.current.intensity = weather.current.type === 'clear' ? 0 : 0.3 + Math.random() * 0.7;
     }
     
-    // Részecskék update - agresszív tisztítás mobilon
-    const mobileParticleOptim = getPerfConfig();
+    // Részecskék update
     particles.current.forEach(particle => {
       particle.x += particle.vx;
       particle.y += particle.vy;
@@ -1216,12 +1178,9 @@ export default function SzenyoMadar() {
       particle.life--;
     });
     
-    // Ultra-light módban még agresszívebb részecske limitálás
-    if (detectPerformanceLevel() === 'ultraLight') {
-      particles.current = particles.current.filter(p => p.life > 0).slice(-mobileParticleOptim.maxParticles);
-    } else {
-      particles.current = particles.current.filter(p => p.life > 0);
-    }
+    // Részecske limitálás teljesítmény alapján
+    const perfConfig = getPerfConfig();
+    particles.current = particles.current.filter(p => p.life > 0).slice(-perfConfig.maxParticles);
     
     // Power-up ütközések
     checkPowerUpCollisions();
@@ -1331,9 +1290,8 @@ export default function SzenyoMadar() {
       return `#${((newR << 16) | (newG << 8) | newB).toString(16).padStart(6, '0')}`;
     }
     
-    // Háttér objektumok - ultra-light módban kikapcsolva
-    if (!(perfConfig as any).disableBackgroundObjects) {
-      bgObjects.current.forEach(obj => {
+    // Háttér objektumok renderelése
+    bgObjects.current.forEach(obj => {
         ctx.fillStyle = obj.type === 'cloud' ? 'rgba(255,255,255,0.6)' : '#FFFF99';
         if (obj.type === 'cloud') {
           // Egyszerű felhő
@@ -1360,7 +1318,6 @@ export default function SzenyoMadar() {
         ctx.fill();
       }
     });
-    }
     
     // Csövek/épületek/akadályok - biome based rendering
     pipes.current.forEach(pipe => {
@@ -2265,14 +2222,6 @@ export default function SzenyoMadar() {
     // Delta time számítás
     if (time.current.last === 0) time.current.last = now;
     const deltaTime = now - time.current.last;
-    
-    // Teljesítmény-alapú frame skipping
-    const perfConfig = getPerfConfig();
-    if (deltaTime < perfConfig.animationInterval) {
-      rafRef.current = requestAnimationFrame(gameLoop);
-      return;
-    }
-    
     time.current.last = now;
     
     // Csak futó állapotban frissítjük a játékot
@@ -2586,7 +2535,7 @@ export default function SzenyoMadar() {
                   </span>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  {getPerfConfig().maxParticles} részecske | {(60000 / getPerfConfig().animationInterval).toFixed(0)} FPS cél
+                  {getPerfConfig().maxParticles} részecske limit
                 </div>
               </div>
               
