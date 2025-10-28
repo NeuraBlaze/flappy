@@ -1,8 +1,8 @@
 import React from 'react'
-import HarasztFlappy from './components/HarasztFlappy'
+import SzenyoMadar from './components/SzenyoMadar'
 
 function App() {
-  return <HarasztFlappy />
+  return <SzenyoMadar />
 }
 
 export default App

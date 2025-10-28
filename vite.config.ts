@@ -6,6 +6,7 @@ export default defineConfig({
   base: '/flappy/',
   server: {
     port: 3000,
-    host: true
+    host: '0.0.0.0', // Ez teszi elérhetővé a helyi hálózatról
+    strictPort: false
   }
 })

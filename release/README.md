@@ -1,8 +1,8 @@
-# 🐦 Haraszt Flappy - Lokális Kiadás
+# 🐦 Szenyo-madár - Lokális Kiadás
 
 ## 🚀 Azonnali indítás
 
-**Egyszerűen dupla klikk a `🐦 START_FLAPPY_GAME.bat` fájlra!**
+**Egyszerűen dupla klikk a `🐦 START_SZENYO_GAME.bat` fájlra!**
 
 A játék automatikusan megnyílik a böngészőben a http://localhost:8080 címen.
 

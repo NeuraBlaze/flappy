@@ -1,4 +1,4 @@
-# 🐦 Haraszt Flappy
+# 🐦 Szenyo-madár
 
 Egy modern, pixel-art stílusú Flappy Bird játék React és TypeScript segítségével.
 
