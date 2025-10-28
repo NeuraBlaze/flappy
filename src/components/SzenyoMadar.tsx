@@ -756,8 +756,159 @@ export default function SzenyoMadar() {
       setShowConsole(false);
       setConsoleInput("");
     }
+    // Új diagnosztikai és debug parancsok
+    else if (cmd === "status" || cmd === "info") {
+      const currentSkin = birdSkins.current.find(skin => skin.id === selectedBirdSkin);
+      const b = bird.current;
+      const statusInfo = `📊 JÁTÉK ÁLLAPOT:\n\n` +
+        `🎯 Pontszám: ${score}\n` +
+        `🏆 Legjobb: ${best}\n` +
+        `💰 Érmék: ${coins}\n` +
+        `🎮 Játék állapot: ${state === GameState.MENU ? 'MENU' : state === GameState.RUN ? 'FUTÓ' : state === GameState.GAMEOVER ? 'GAME OVER' : 'PAUSE'}\n` +
+        `🐦 Madár skin: ${currentSkin?.name || 'Alapértelmezett'}\n` +
+        `📍 Madár pozíció: x=${Math.round(b.x)}, y=${Math.round(b.y)}\n` +
+        `🌡️ FPS: ~${Math.round(1000/16.67)}\n` +
+        `🚨 Hibák száma: ${errorLogRef.current.length}\n` +
+        `🎪 Aktív biom: ${currentBiome.current.id}\n` +
+        `📱 Touch kontrollok: ${buttonPosition}`;
+      alert(statusInfo);
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "performance" || cmd === "perf") {
+      const perfInfo = `⚡ TELJESÍTMÉNY ADATOK:\n\n` +
+        `🖥️ Eszköz pixel ratio: ${window.devicePixelRatio || 1}\n` +
+        `📐 Képernyő felbontás: ${window.screen.width}x${window.screen.height}\n` +
+        `🌐 Böngésző: ${navigator.userAgent.includes('Chrome') ? 'Chrome' : 
+                      navigator.userAgent.includes('Firefox') ? 'Firefox' : 
+                      navigator.userAgent.includes('Safari') ? 'Safari' : 'Egyéb'}\n` +
+        `📱 Mobil eszköz: ${/Mobi|Android/i.test(navigator.userAgent) ? 'Igen' : 'Nem'}\n` +
+        `⚡ Target FPS: 60\n` +
+        `🎮 Game loop: requestAnimationFrame\n` +
+        `🎨 Canvas renderelés: 2D context\n` +
+        `💾 LocalStorage használat: ${Object.keys(localStorage).filter(k => k.startsWith('szenyo_madar')).length} kulcs`;
+      alert(perfInfo);
+      console.log("🔧 Performance details:", {
+        screen: { width: window.screen.width, height: window.screen.height },
+        devicePixelRatio: window.devicePixelRatio,
+        userAgent: navigator.userAgent,
+        localStorage: Object.keys(localStorage).filter(k => k.startsWith('szenyo_madar'))
+      });
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "birds" || cmd === "skins") {
+      const availableSkins = birdSkins.current.map(skin => `${skin.id === selectedBirdSkin ? '✅' : '🔒'} ${skin.name} (${skin.id})`).join('\n');
+      alert(`🐦 MADÁR SKINEK:\n\n${availableSkins}\n\n✅ = Feloldva\n🔒 = Zárva`);
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "abilities") {
+      const currentSkin = birdSkins.current.find(skin => skin.id === selectedBirdSkin);
+      if (!currentSkin) {
+        alert("❌ Nincs kiválasztott madár skin!");
+        setShowConsole(false);
+        setConsoleInput("");
+        return;
+      }
+      
+      const abilities = Object.entries(currentSkin.abilities)
+        .filter(([, value]) => value === true)
+        .map(([key]) => key)
+        .join(', ');
+      
+      const b = bird.current;
+      const abilityStatus = `🎯 KÉPESSÉGEK - ${currentSkin.name}:\n\n` +
+        `⚡ Aktív képességek: ${abilities || 'Nincs'}\n` +
+        `🌑 Shadow teleport: ${b.shadowTeleportsLeft || 0} db\n` +
+        `👻 Wall phase: ${b.wallPhaseLeft || 0} tick\n` +
+        `🚀 Warp jumps: ${b.warpJumpsLeft || 0} db\n` +
+        `⚡ Lightning cooldown: ${b.lightningCooldown || 0}\n` +
+        `🔥 Dark aura: ${b.darkAuraActive ? 'Aktív' : 'Inaktív'}\n` +
+        `⚡ Electric field: ${b.electricFieldActive ? 'Aktív' : 'Inaktív'}`;
+      
+      alert(abilityStatus);
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "reset" || cmd === "restart") {
+      if (confirm("🔄 Biztosan újraindítod a játékot? (Pontszám elvész)")) {
+        resetGame();
+        alert("🎮 Játék újraindítva!");
+      }
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "save") {
+      try {
+        localStorage.setItem("szenyo_madar_coins", coins.toString());
+        localStorage.setItem("szenyo_madar_best", best.toString());
+        localStorage.setItem("szenyo_madar_achievements", JSON.stringify(achievements));
+        localStorage.setItem("szenyo_madar_starting_biome", startingBiome.toString());
+        localStorage.setItem("szenyo_madar_button_position", buttonPosition);
+        alert("💾 Játék mentve!");
+      } catch (error) {
+        alert("❌ Hiba a mentés során!");
+        logError('Console save failed', error);
+      }
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "export") {
+      try {
+        const exportData = {
+          coins,
+          best,
+          achievements,
+          startingBiome,
+          buttonPosition,
+          timestamp: new Date().toISOString(),
+          version: "1.0"
+        };
+        
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `flappy_bird_save_${new Date().toISOString().slice(0,10)}.json`;
+        link.click();
+        
+        URL.revokeObjectURL(url);
+        alert("📤 Játék adatok exportálva!");
+      } catch (error) {
+        alert("❌ Hiba az exportálás során!");
+        logError('Console export failed', error);
+      }
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "help" || cmd === "commands") {
+      const helpText = `🆘 ELÉRHETŐ PARANCSOK:\n\n` +
+        `🎮 JÁTÉK VEZÉRLÉS:\n` +
+        `• status/info - Játék állapot megjelenítése\n` +
+        `• reset/restart - Játék újraindítása\n` +
+        `• save - Játék mentése\n` +
+        `• export - Adatok exportálása\n\n` +
+        `🐦 MADÁR KEZELÉS:\n` +
+        `• birds/skins - Elérhető skinek listája\n` +
+        `• abilities - Aktuális képességek\n\n` +
+        `🔧 DIAGNOSZTIKA:\n` +
+        `• performance/perf - Teljesítmény adatok\n` +
+        `• errorlog - Hibák megjelenítése\n` +
+        `• clearerrors - Hibák törlése\n\n` +
+        `🎁 CHEAT KÓDOK:\n` +
+        `• szeretlekmario - Minden feloldása\n` +
+        `• dracarys, area51, gamer, unicorn - Érmék\n` +
+        `• thunderstorm, superhero - High score`;
+      alert(helpText);
+      setShowConsole(false);
+      setConsoleInput("");
+    }
     else {
-      alert("❌ Ismeretlen parancs. Próbáld meg: szeretlekmario, dracarys, area51, gamer, unicorn, thunderstorm, superhero, errorlog, clearerrors");
+      alert("❌ Ismeretlen parancs. Írd be: 'help' a parancsok listájához!");
+      setConsoleInput("");
     }
   }, [coins]);
 
@@ -3787,8 +3938,11 @@ export default function SzenyoMadar() {
           break;
         case 'KeyX':
         case 'KeyS':
-          e.preventDefault();
-          shoot();
+          // Ha a konzol nyitva van, engedjük át a KeyS-t a terminálba
+          if (!showConsole) {
+            e.preventDefault();
+            shoot();
+          }
           break;
         case 'KeyQ': // Demon Bird - Shadow Teleport
           e.preventDefault();
