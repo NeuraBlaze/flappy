@@ -703,9 +703,16 @@ export default function SzenyoMadar() {
     }
   ]);
 
-  // Initialize current biome with the selected starting biome
-  const currentBiome = useRef<Biome>(biomes.current[startingBiome] || biomes.current[0]);
+  // Initialize current biome with the selected starting biome - use useEffect to ensure proper initialization
+  const currentBiome = useRef<Biome>(biomes.current[0]); // Default to first biome
   const biomeTransitionScore = useRef(0);
+
+  // Initialize biome after startingBiome is loaded
+  useEffect(() => {
+    if (biomes.current[startingBiome]) {
+      currentBiome.current = biomes.current[startingBiome];
+    }
+  }, [startingBiome]);
 
   // Sprite animációk definiálása (pixel koordinátákban)
   const birdSprites = useRef({
@@ -3884,6 +3891,134 @@ export default function SzenyoMadar() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+        
+        {/* Touch Control Buttons for Special Abilities */}
+        {state === GameState.RUN && (
+          <div className="absolute bottom-4 left-4 flex flex-col gap-2 pointer-events-auto">
+            {/* Shadow Teleport - Demon Bird */}
+            {getCurrentBirdSkin().abilities.shadowTeleport && bird.current.shadowTeleportsLeft > 0 && (
+              <button
+                className="w-12 h-12 bg-red-800 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg active:bg-red-600"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const b = bird.current;
+                  if (b.shadowTeleportsLeft > 0) {
+                    b.shadowTeleportsLeft--;
+                    b.y = Math.max(50, Math.min(world.current.h - 50, Math.random() * world.current.h));
+                    createParticles(b.x, b.y, 15, '#8B0000', 'explosion');
+                    playSound(400, 0.3, 'powerup');
+                  }
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const b = bird.current;
+                  if (b.shadowTeleportsLeft > 0) {
+                    b.shadowTeleportsLeft--;
+                    b.y = Math.max(50, Math.min(world.current.h - 50, Math.random() * world.current.h));
+                    createParticles(b.x, b.y, 15, '#8B0000', 'explosion');
+                    playSound(400, 0.3, 'powerup');
+                  }
+                }}
+              >
+                😈
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {bird.current.shadowTeleportsLeft}
+                </span>
+              </button>
+            )}
+            
+            {/* Wall Phase - Super Bird */}
+            {getCurrentBirdSkin().abilities.flyThroughWalls && bird.current.wallPhaseLeft > 0 && (
+              <button
+                className="w-12 h-12 bg-blue-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg active:bg-blue-400"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const b = bird.current;
+                  if (b.wallPhaseLeft > 0 && !b.wallPhaseActive) {
+                    b.wallPhaseLeft = Math.min(b.wallPhaseLeft, 180); // 3 seconds max
+                    b.wallPhaseActive = true;
+                    createParticles(b.x, b.y, 10, '#0080FF', 'sparkle');
+                    playSound(600, 0.2, 'powerup');
+                  }
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const b = bird.current;
+                  if (b.wallPhaseLeft > 0 && !b.wallPhaseActive) {
+                    b.wallPhaseLeft = Math.min(b.wallPhaseLeft, 180); // 3 seconds max
+                    b.wallPhaseActive = true;
+                    createParticles(b.x, b.y, 10, '#0080FF', 'sparkle');
+                    playSound(600, 0.2, 'powerup');
+                  }
+                }}
+              >
+                🦸‍♂️
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {Math.ceil(bird.current.wallPhaseLeft / 60)}
+                </span>
+              </button>
+            )}
+            
+            {/* Warp Speed - UFO Bird */}
+            {getCurrentBirdSkin().abilities.warpSpeed && bird.current.warpJumpsLeft > 0 && (
+              <button
+                className="w-12 h-12 bg-green-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg active:bg-green-400"
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const b = bird.current;
+                  if (b.warpJumpsLeft > 0) {
+                    b.warpJumpsLeft--;
+                    b.x += 150; // Quick forward movement
+                    createParticles(b.x, b.y, 12, '#00FF00', 'trail');
+                    playSound(800, 0.2, 'powerup');
+                  }
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const b = bird.current;
+                  if (b.warpJumpsLeft > 0) {
+                    b.warpJumpsLeft--;
+                    b.x += 150; // Quick forward movement
+                    createParticles(b.x, b.y, 12, '#00FF00', 'trail');
+                    playSound(800, 0.2, 'powerup');
+                  }
+                }}
+              >
+                🛸
+                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {bird.current.warpJumpsLeft}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+        
+        {/* Shoot Button for Combat Birds */}
+        {state === GameState.RUN && getCurrentBirdSkin().abilities.canShoot && (
+          <div className="absolute bottom-4 right-4 pointer-events-auto">
+            <button
+              className="w-14 h-14 bg-orange-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg active:bg-orange-400"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                shoot();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                shoot();
+              }}
+            >
+              🔫
+            </button>
           </div>
         )}
         
