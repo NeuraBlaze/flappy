@@ -649,6 +649,17 @@ export default function SzenyoMadar() {
     }
   }, [logError]);
 
+  // Safe ability checker
+  const hasAbility = useCallback((abilityName: string): boolean => {
+    try {
+      const currentSkin = getCurrentBirdSkin();
+      return Boolean(currentSkin?.abilities?.[abilityName as keyof typeof currentSkin.abilities]);
+    } catch (error) {
+      logError(`Ability check failed for ${abilityName}`, error);
+      return false;
+    }
+  }, [getCurrentBirdSkin, logError]);
+
   // Helper: Handle console commands
   const handleConsoleCommand = useCallback((command: string) => {
     const cmd = command.toLowerCase().trim();
@@ -1130,20 +1141,20 @@ export default function SzenyoMadar() {
       canShoot: currentSkin?.abilities.canShoot || false,
       shootCooldown: 0,
       
-      // Initialize new abilities based on current skin
-      shadowTeleportsLeft: currentSkin?.abilities.shadowTeleport || 0,
-      darkAuraActive: currentSkin?.abilities.darkAura ? true : false,
+      // Initialize new abilities based on current skin - with null safety
+      shadowTeleportsLeft: (currentSkin?.abilities?.shadowTeleport ?? 0),
+      darkAuraActive: Boolean(currentSkin?.abilities?.darkAura),
       lightningCooldown: 0,
-      electricFieldActive: currentSkin?.abilities.electricField || false,
-      wallPhaseLeft: currentSkin?.abilities.flyThroughWalls || 0,
-      laserActive: currentSkin?.abilities.laserVision || false,
-      warpJumpsLeft: currentSkin?.abilities.warpSpeed || 0,
-      antiGravActive: currentSkin?.abilities.antiGravity || false,
-      abductionActive: currentSkin?.abilities.abductionBeam || false,
-      pixelModeActive: currentSkin?.abilities.pixelMode || false,
-      powerUpMagnetActive: currentSkin?.abilities.powerUpMagnet || false,
+      electricFieldActive: Boolean(currentSkin?.abilities?.electricField),
+      wallPhaseLeft: (currentSkin?.abilities?.flyThroughWalls ?? 0),
+      laserActive: Boolean(currentSkin?.abilities?.laserVision),
+      warpJumpsLeft: (currentSkin?.abilities?.warpSpeed ?? 0),
+      antiGravActive: Boolean(currentSkin?.abilities?.antiGravity),
+      abductionActive: Boolean(currentSkin?.abilities?.abductionBeam),
+      pixelModeActive: Boolean(currentSkin?.abilities?.pixelMode),
+      powerUpMagnetActive: Boolean(currentSkin?.abilities?.powerUpMagnet),
       hornCooldown: 0,
-      hornActive: currentSkin?.abilities.magicHorn || false,
+      hornActive: Boolean(currentSkin?.abilities?.magicHorn),
       wallPhaseActive: false
     };
     pipes.current = [];
@@ -1515,34 +1526,40 @@ export default function SzenyoMadar() {
         if (pipes.current.length > 0) {
           const closestPipe = pipes.current.find(pipe => pipe.x > b.x);
           if (closestPipe) {
-            pipes.current.splice(pipes.current.indexOf(closestPipe), 1);
-            createParticles(closestPipe.x + w.pipeW/2, closestPipe.top + w.gap/2, 15, '#FFFF00', 'explosion');
-            playSound(800, 0.3, 'hit');
-            setScore(prev => prev + 3); // Lightning bonus
+            const pipeIndex = pipes.current.indexOf(closestPipe);
+            if (pipeIndex !== -1) {
+              pipes.current.splice(pipeIndex, 1);
+              createParticles(closestPipe.x + w.pipeW/2, closestPipe.top + w.gap/2, 15, '#FFFF00', 'explosion');
+              playSound(800, 0.3, 'hit');
+              setScore(prev => prev + 3); // Lightning bonus
+            }
           }
         }
       }
       
       // Electric field damages nearby pipes
       if (b.electricFieldActive) {
-        pipes.current.forEach((pipe, index) => {
+        // Safe iteration with reverse loop to avoid index issues
+        for (let i = pipes.current.length - 1; i >= 0; i--) {
+          const pipe = pipes.current[i];
           const distance = Math.abs(pipe.x + w.pipeW/2 - b.x);
           if (distance < 80) { // Electric field range
-            pipes.current.splice(index, 1);
+            pipes.current.splice(i, 1);
             createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 8, '#00FFFF', 'sparkle');
             setScore(prev => prev + 1);
           }
-        });
+        }
       }
     }
 
     // 😈 DÉMONI MADÁR KÉPESSÉGEK 😈
     if (currentSkin.abilities.darkAura && b.darkAuraActive) {
-      // Dark aura destroys nearby pipes
-      pipes.current.forEach((pipe, index) => {
+      // Dark aura destroys nearby pipes - safe iteration
+      for (let i = pipes.current.length - 1; i >= 0; i--) {
+        const pipe = pipes.current[i];
         const distance = Math.abs(pipe.x + w.pipeW/2 - b.x);
         if (distance < (currentSkin.abilities.darkAura || 50)) {
-          pipes.current.splice(index, 1);
+          pipes.current.splice(i, 1);
           createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 10, '#8B0000', 'explosion');
           playSound(150, 0.2, 'hit');
           // Life steal: restore health if damaged
@@ -1551,20 +1568,21 @@ export default function SzenyoMadar() {
             createParticles(b.x, b.y, 5, '#FF0000', 'sparkle');
           }
         }
-      });
+      }
     }
 
     // 🦸‍♂️ SZUPERMADÁR KÉPESSÉGEK 🦸‍♂️
     if (currentSkin.abilities.laserVision && b.laserActive) {
-      // Laser vision destroys pipes in front
-      pipes.current.forEach((pipe, index) => {
+      // Laser vision destroys pipes in front - safe iteration
+      for (let i = pipes.current.length - 1; i >= 0; i--) {
+        const pipe = pipes.current[i];
         if (pipe.x > b.x && pipe.x < b.x + 100) {
-          pipes.current.splice(index, 1);
+          pipes.current.splice(i, 1);
           createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 12, '#FF0000', 'explosion');
           playSound(600, 0.2, 'hit');
           setScore(prev => prev + 2);
         }
-      });
+      }
     }
 
     // 🛸 UFO MADÁR KÉPESSÉGEK 🛸
@@ -1574,18 +1592,19 @@ export default function SzenyoMadar() {
     }
     
     if (currentSkin.abilities.abductionBeam && b.abductionActive) {
-      // Abduction beam pulls pipes upward and destroys them
-      pipes.current.forEach((pipe, index) => {
+      // Abduction beam pulls pipes upward and destroys them - safe iteration
+      for (let i = pipes.current.length - 1; i >= 0; i--) {
+        const pipe = pipes.current[i];
         const distance = Math.abs(pipe.x + w.pipeW/2 - b.x);
         if (distance < 60) {
           pipe.top -= 2; // Pull upward
           if (pipe.top <= 0) {
-            pipes.current.splice(index, 1);
+            pipes.current.splice(i, 1);
             createParticles(pipe.x + w.pipeW/2, 50, 8, '#00FF00', 'sparkle');
             setScore(prev => prev + 2);
           }
         }
-      });
+      }
     }
 
     // 🎮 RETRO GAMER MADÁR KÉPESSÉGEK 🎮
@@ -1836,18 +1855,19 @@ export default function SzenyoMadar() {
 
     // 🦄 EGYSZARVÚ MADÁR - Szarv ütközés logika (ütközés előtt!)
     if (currentSkin.abilities.magicHorn && b.hornActive) {
-      // Szarv áttöri az akadályokat
-      pipes.current.forEach((pipe, index) => {
+      // Szarv áttöri az akadályokat - safe iteration
+      for (let i = pipes.current.length - 1; i >= 0; i--) {
+        const pipe = pipes.current[i];
         if (b.x + b.r > pipe.x && b.x - b.r < pipe.x + w.pipeW) {
           if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap) {
             // Szarv áttöri a csövet
-            pipes.current.splice(index, 1);
+            pipes.current.splice(i, 1);
             createParticles(pipe.x + w.pipeW/2, pipe.top + w.gap/2, 15, '#FF69B4', 'sparkle');
             playSound(400, 0.3, 'hit');
             setScore(prev => prev + 5); // Bonus unicorn horn points
           }
         }
-      });
+      }
       
       // Horn cooldown reset
       b.hornActive = false;
