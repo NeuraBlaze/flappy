@@ -3927,6 +3927,11 @@ export default function SzenyoMadar() {
   // Event handlerek
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ha a konzol nyitva van, ne akadályozzuk meg a billentyűzet használatát
+      if (showConsole) {
+        return; // Engedjük át minden billentyűt a konzolhoz
+      }
+      
       const b = bird.current;
       const currentSkin = birdSkins.current.find(skin => skin.id === selectedBirdSkin);
       
@@ -3938,11 +3943,8 @@ export default function SzenyoMadar() {
           break;
         case 'KeyX':
         case 'KeyS':
-          // Ha a konzol nyitva van, engedjük át a KeyS-t a terminálba
-          if (!showConsole) {
-            e.preventDefault();
-            shoot();
-          }
+          e.preventDefault();
+          shoot();
           break;
         case 'KeyQ': // Demon Bird - Shadow Teleport
           e.preventDefault();
@@ -3996,7 +3998,7 @@ export default function SzenyoMadar() {
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [flap, togglePause, restart, state]);
+  }, [flap, togglePause, restart, state, showConsole]);
 
   // Canvas és resize setup
   useEffect(() => {
