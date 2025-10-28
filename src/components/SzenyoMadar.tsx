@@ -95,6 +95,27 @@ interface BackgroundObj {
   speed: number;
 }
 
+// Bird skin típusok
+interface BirdSkin {
+  id: string;
+  name: string;
+  emoji: string;
+  bodyColor: string;
+  wingColor: string;
+  unlockRequirement: {
+    type: 'coins' | 'achievement' | 'score';
+    value: number | string;
+  };
+  abilities: {
+    jumpPower?: number; // 1.0 = normal
+    gravity?: number; // 1.0 = normal  
+    magnetBonus?: number; // 1.0 = normal
+    shieldDuration?: number; // 1.0 = normal
+    coinValue?: number; // 1.0 = normal
+  };
+  description: string;
+}
+
 export default function SzenyoMadar() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -122,6 +143,74 @@ export default function SzenyoMadar() {
   });
   const [debug, setDebug] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [showBirdSelector, setShowBirdSelector] = useState(false);
+  const [selectedBirdSkin, setSelectedBirdSkin] = useState<string>(() => {
+    return localStorage.getItem("szenyo_madar_selected_skin") || "classic";
+  });
+
+  // Bird skins definition
+  const birdSkins = useRef<BirdSkin[]>([
+    {
+      id: "classic",
+      name: "Klasszikus Madár",
+      emoji: "🐦",
+      bodyColor: "#FFD700",
+      wingColor: "#FFA500",
+      unlockRequirement: { type: "coins", value: 0 },
+      abilities: {},
+      description: "Az eredeti szenyo-madár"
+    },
+    {
+      id: "eagle",
+      name: "Sas",
+      emoji: "🦅",
+      bodyColor: "#8B4513",
+      wingColor: "#A0522D",
+      unlockRequirement: { type: "score", value: 50 },
+      abilities: { jumpPower: 1.2, gravity: 0.9 },
+      description: "Erősebb ugrás és jobb irányítás"
+    },
+    {
+      id: "penguin",
+      name: "Pingvin",
+      emoji: "🐧",
+      bodyColor: "#000000",
+      wingColor: "#FFFFFF",
+      unlockRequirement: { type: "achievement", value: "shield_master" },
+      abilities: { gravity: 0.7, shieldDuration: 1.5 },
+      description: "Lassabb zuhanás és hosszabb pajzs"
+    },
+    {
+      id: "duck",
+      name: "Kacsa",
+      emoji: "🦆",
+      bodyColor: "#FFFF00",
+      wingColor: "#FF8C00",
+      unlockRequirement: { type: "coins", value: 100 },
+      abilities: { magnetBonus: 1.5, coinValue: 1.2 },
+      description: "Jobb érme gyűjtés és mágnes"
+    },
+    {
+      id: "dove",
+      name: "Galamb",
+      emoji: "🕊️",
+      bodyColor: "#F8F8FF",
+      wingColor: "#E6E6FA",
+      unlockRequirement: { type: "achievement", value: "rainbow_rider" },
+      abilities: { shieldDuration: 2.0, jumpPower: 0.9 },
+      description: "Békés repülés extra védelem"
+    },
+    {
+      id: "parrot",
+      name: "Papagáj",
+      emoji: "🦜",
+      bodyColor: "#FF69B4",
+      wingColor: "#00CED1",
+      unlockRequirement: { type: "coins", value: 250 },
+      abilities: { jumpPower: 1.1, magnetBonus: 1.3, coinValue: 1.1 },
+      description: "Színes és sokoldalú képességek"
+    }
+  ]);
 
   // Világ paraméterek (virtuális koordináta-rendszer)
   const world = useRef({
@@ -195,6 +284,40 @@ export default function SzenyoMadar() {
     jumpSounds: [440, 494, 523, 587], // A4, B4, C5, D5
     currentJumpIndex: 0
   });
+
+  // Helper: Get current bird skin
+  const getCurrentBirdSkin = useCallback(() => {
+    return birdSkins.current.find(skin => skin.id === selectedBirdSkin) || birdSkins.current[0];
+  }, [selectedBirdSkin]);
+
+  // Helper: Check if skin is unlocked
+  const isSkinUnlocked = useCallback((skin: BirdSkin) => {
+    switch (skin.unlockRequirement.type) {
+      case 'coins':
+        return coins >= (skin.unlockRequirement.value as number);
+      case 'score':
+        return best >= (skin.unlockRequirement.value as number);
+      case 'achievement':
+        const achievement = achievements.find(ach => ach.id === skin.unlockRequirement.value);
+        return achievement?.unlocked || false;
+      default:
+        return true;
+    }
+  }, [coins, best, achievements]);
+
+  // Helper: Get unlocked skins count
+  const getUnlockedSkinsCount = useCallback(() => {
+    return birdSkins.current.filter(skin => isSkinUnlocked(skin)).length;
+  }, [isSkinUnlocked]);
+
+  // Helper: Select bird skin
+  const selectBirdSkin = useCallback((skinId: string) => {
+    const skin = birdSkins.current.find(s => s.id === skinId);
+    if (skin && isSkinUnlocked(skin)) {
+      setSelectedBirdSkin(skinId);
+      localStorage.setItem("szenyo_madar_selected_skin", skinId);
+    }
+  }, [isSkinUnlocked]);
 
   // Weather rendszer
   const weather = useRef({
@@ -507,7 +630,10 @@ export default function SzenyoMadar() {
     }
     if (state === GameState.PAUSE) return;
     
-    bird.current.vy = world.current.jump;
+    const currentSkin = getCurrentBirdSkin();
+    const jumpMultiplier = currentSkin.abilities.jumpPower || 1.0;
+    
+    bird.current.vy = world.current.jump * jumpMultiplier;
     bird.current.angle = -0.3;
     playSound(440, 0.1, 'jump');
     
@@ -634,7 +760,9 @@ export default function SzenyoMadar() {
             
             switch (powerUp.type) {
               case 'shield':
-                b.shield = 300; // 5 másodperc védelem
+                const currentSkin = getCurrentBirdSkin();
+                const shieldMultiplier = currentSkin.abilities.shieldDuration || 1.0;
+                b.shield = Math.round(300 * shieldMultiplier); // 5 másodperc védelem * skin bonus
                 b.shieldsUsed++;
                 break;
               case 'slow':
@@ -677,9 +805,20 @@ export default function SzenyoMadar() {
         const dy = coin.y - b.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         
-        if (dist < 15 || (b.magnet > 0 && dist < 50)) {
+        // Apply skin magnet bonus
+        const currentSkin = getCurrentBirdSkin();
+        const magnetBonus = currentSkin.abilities.magnetBonus || 1.0;
+        const magnetRange = b.magnet > 0 ? 50 * magnetBonus : 15;
+        
+        if (dist < magnetRange) {
           coin.collected = true;
-          setCoins(c => c + coin.value);
+          
+          // Apply skin coin value bonus
+          const currentSkin = getCurrentBirdSkin();
+          const coinMultiplier = currentSkin.abilities.coinValue || 1.0;
+          const finalValue = Math.round(coin.value * coinMultiplier);
+          
+          setCoins(c => c + finalValue);
           playSound(800, 0.1, 'score');
           createParticles(coin.x, coin.y, 5, '#FFD700', 'sparkle');
           
@@ -720,8 +859,11 @@ export default function SzenyoMadar() {
     
     time.current.frameCount++;
     
-    // Madár fizika és animáció
-    b.vy += w.gravity * gameSpeed;
+    // Madár fizika és animáció - skin abilities
+    const currentSkin = getCurrentBirdSkin();
+    const gravityMultiplier = currentSkin.abilities.gravity || 1.0;
+    
+    b.vy += w.gravity * gameSpeed * gravityMultiplier;
     b.y += b.vy * gameSpeed;
     b.angle = Math.max(-0.5, Math.min(0.8, b.vy * 0.1));
     
@@ -1455,8 +1597,9 @@ export default function SzenyoMadar() {
       }
     }
     
-    // Madár test (animált) - enhanced with combo colors
+    // Madár test (animált) - enhanced with combo colors and skin
     const bodyY = currentFrame.bodyOffset;
+    const currentSkin = getCurrentBirdSkin();
     
     if (b.godMode > 0) {
       // God mode: Cosmic shifting colors
@@ -1474,14 +1617,19 @@ export default function SzenyoMadar() {
       const colorIndex = Math.floor(time.current.frameCount * 0.1) % rainbowColors.length;
       ctx.fillStyle = rainbowColors[colorIndex];
     } else {
-      ctx.fillStyle = b.shield > 0 ? '#00BFFF' : '#FFD700';
+      // Use skin colors with shield overlay
+      if (b.shield > 0) {
+        ctx.fillStyle = '#00BFFF'; // Shield blue overrides skin
+      } else {
+        ctx.fillStyle = currentSkin.bodyColor;
+      }
     }
     ctx.beginPath();
     ctx.arc(0, bodyY, b.r, 0, Math.PI * 2);
     ctx.fill();
     
-    // Szárnyak animációja - enhanced colors
-    let wingColor = '#FFA500';
+    // Szárnyak animációja - enhanced colors with skin
+    let wingColor = currentSkin.wingColor;
     if (b.godMode > 0) wingColor = '#FFFFFF';
     else if (b.superMode > 0) wingColor = '#FFD700';
     else if (b.megaMode > 0) wingColor = '#FF69B4';
@@ -1830,6 +1978,12 @@ export default function SzenyoMadar() {
                   ▶ JÁTÉK START
                 </button>
                 <button 
+                  onClick={() => setShowBirdSelector(!showBirdSelector)}
+                  className="pixel-button px-6 py-3 text-lg block mx-auto"
+                >
+                  🐦 MADÁR VÁLASZTÁS ({getUnlockedSkinsCount()}/{birdSkins.current.length})
+                </button>
+                <button 
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="pixel-button px-6 py-3 text-lg block mx-auto"
                 >
@@ -1889,6 +2043,97 @@ export default function SzenyoMadar() {
               <button 
                 onClick={() => setShowInstructions(false)}
                 className="pixel-button px-6 py-3 mt-4 w-full"
+              >
+                ❌ Bezárás
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Bird Selector */}
+        {showBirdSelector && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center pointer-events-auto">
+            <div className="bg-gray-800 p-6 rounded-lg max-w-lg text-white pixel-text max-h-[80vh] overflow-y-auto">
+              <h2 className="text-2xl mb-4 text-center">🐦 Madár Választás</h2>
+              
+              {/* Current selection display */}
+              <div className="mb-6 p-4 bg-gray-700 rounded-lg text-center">
+                <div className="text-3xl mb-2">{getCurrentBirdSkin().emoji}</div>
+                <div className="text-lg font-bold">{getCurrentBirdSkin().name}</div>
+                <div className="text-sm text-gray-300">{getCurrentBirdSkin().description}</div>
+                {Object.keys(getCurrentBirdSkin().abilities).length > 0 && (
+                  <div className="text-xs text-yellow-400 mt-2">
+                    Képességek: {Object.entries(getCurrentBirdSkin().abilities).map(([key, value]) => 
+                      `${key}: ${(value as number * 100).toFixed(0)}%`
+                    ).join(', ')}
+                  </div>
+                )}
+              </div>
+              
+              {/* Bird grid */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {birdSkins.current.map(skin => {
+                  const isUnlocked = isSkinUnlocked(skin);
+                  const isSelected = selectedBirdSkin === skin.id;
+                  
+                  return (
+                    <button
+                      key={skin.id}
+                      onClick={() => isUnlocked && selectBirdSkin(skin.id)}
+                      disabled={!isUnlocked}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        isSelected 
+                          ? 'border-yellow-400 bg-yellow-900/50' 
+                          : isUnlocked
+                          ? 'border-gray-600 bg-gray-700 hover:border-gray-400 hover:bg-gray-600'
+                          : 'border-gray-800 bg-gray-900 opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <div className="text-2xl mb-1">{isUnlocked ? skin.emoji : '🔒'}</div>
+                      <div className="text-sm font-bold">{skin.name}</div>
+                      <div className="text-xs text-gray-300 mb-2">{skin.description}</div>
+                      
+                      {/* Unlock requirement */}
+                      {!isUnlocked && (
+                        <div className="text-xs text-red-400">
+                          {skin.unlockRequirement.type === 'coins' && `${skin.unlockRequirement.value} érme`}
+                          {skin.unlockRequirement.type === 'score' && `${skin.unlockRequirement.value} pont best`}
+                          {skin.unlockRequirement.type === 'achievement' && 'Achievement szükséges'}
+                        </div>
+                      )}
+                      
+                      {/* Abilities preview */}
+                      {isUnlocked && Object.keys(skin.abilities).length > 0 && (
+                        <div className="text-xs text-yellow-400 mt-1">
+                          {Object.entries(skin.abilities).map(([key, value]) => (
+                            <div key={key}>
+                              {key === 'jumpPower' && '🚀 Ugrás'}
+                              {key === 'gravity' && '🪶 Gravitáció'}
+                              {key === 'magnetBonus' && '🧲 Mágnes'}
+                              {key === 'shieldDuration' && '🛡️ Pajzs'}
+                              {key === 'coinValue' && '💰 Érme'}
+                              : {((value as number) * 100).toFixed(0)}%
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {isSelected && (
+                        <div className="text-green-400 text-xs mt-2 font-bold">✓ KIVÁLASZTVA</div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {/* Progress info */}
+              <div className="text-center text-sm text-gray-400 mb-4">
+                Feloldva: {getUnlockedSkinsCount()}/{birdSkins.current.length} madár
+              </div>
+              
+              <button 
+                onClick={() => setShowBirdSelector(false)}
+                className="pixel-button px-6 py-3 w-full"
               >
                 ❌ Bezárás
               </button>
