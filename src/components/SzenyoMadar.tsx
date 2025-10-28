@@ -276,6 +276,10 @@ export default function SzenyoMadar() {
     const saved = localStorage.getItem("szenyo_madar_starting_biome");
     return saved ? parseInt(saved, 10) : 0;
   });
+  const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
+    const saved = localStorage.getItem("szenyo_madar_button_position");
+    return (saved as 'left' | 'right') || 'left';
+  });
 
   // Bird skins definition
   const birdSkins = useRef<BirdSkin[]>([
@@ -572,6 +576,12 @@ export default function SzenyoMadar() {
   const selectStartingBiome = useCallback((biomeIndex: number) => {
     setStartingBiome(biomeIndex);
     localStorage.setItem("szenyo_madar_starting_biome", biomeIndex.toString());
+  }, []);
+
+  // Helper: Select button position
+  const selectButtonPosition = useCallback((position: 'left' | 'right') => {
+    setButtonPosition(position);
+    localStorage.setItem("szenyo_madar_button_position", position);
   }, []);
 
   // Helper: Handle console commands
@@ -3896,7 +3906,7 @@ export default function SzenyoMadar() {
         
         {/* Touch Control Buttons for Special Abilities */}
         {state === GameState.RUN && (
-          <div className="absolute bottom-4 left-4 flex flex-col gap-2 pointer-events-auto">
+          <div className={`absolute bottom-4 ${buttonPosition === 'left' ? 'left-4' : 'right-4'} flex flex-col gap-2 pointer-events-auto`}>
             {/* Shadow Teleport - Demon Bird */}
             {getCurrentBirdSkin().abilities.shadowTeleport && bird.current.shadowTeleportsLeft > 0 && (
               <button
@@ -4003,7 +4013,7 @@ export default function SzenyoMadar() {
         
         {/* Shoot Button for Combat Birds */}
         {state === GameState.RUN && getCurrentBirdSkin().abilities.canShoot && (
-          <div className="absolute bottom-4 right-4 pointer-events-auto">
+          <div className={`absolute bottom-4 ${buttonPosition === 'left' ? 'right-4' : 'left-4'} pointer-events-auto`}>
             <button
               className="w-14 h-14 bg-orange-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg active:bg-orange-400"
               onTouchStart={(e) => {
@@ -4394,6 +4404,44 @@ export default function SzenyoMadar() {
               
               <div className="text-center text-sm text-gray-400 mb-4">
                 A játék ezzel a biommal kezdődik (10 pontonként vált át)
+              </div>
+              
+              {/* Button Position Selector */}
+              <div className="mb-4">
+                <h3 className="text-white text-lg mb-2 text-center">📱 Touch Button Pozíció</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      buttonPosition === 'left'
+                        ? 'border-blue-400 bg-blue-900 bg-opacity-50' 
+                        : 'border-gray-600 bg-gray-700 hover:border-gray-400'
+                    }`}
+                    onClick={() => selectButtonPosition('left')}
+                  >
+                    <div className="text-lg mb-1">👈</div>
+                    <div className="text-white font-bold">Bal oldal</div>
+                    <div className="text-xs text-gray-300">Képességek balra, lövés jobbra</div>
+                    {buttonPosition === 'left' && (
+                      <div className="text-green-400 text-sm mt-1 font-bold">✓ AKTÍV</div>
+                    )}
+                  </button>
+                  
+                  <button 
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      buttonPosition === 'right'
+                        ? 'border-blue-400 bg-blue-900 bg-opacity-50' 
+                        : 'border-gray-600 bg-gray-700 hover:border-gray-400'
+                    }`}
+                    onClick={() => selectButtonPosition('right')}
+                  >
+                    <div className="text-lg mb-1">👉</div>
+                    <div className="text-white font-bold">Jobb oldal</div>
+                    <div className="text-xs text-gray-300">Képességek jobbra, lövés balra</div>
+                    {buttonPosition === 'right' && (
+                      <div className="text-green-400 text-sm mt-1 font-bold">✓ AKTÍV</div>
+                    )}
+                  </button>
+                </div>
               </div>
               
               <button 
