@@ -238,8 +238,15 @@ export default function SzenyoMadar() {
   const [showSettings, setShowSettings] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showBirdSelector, setShowBirdSelector] = useState(false);
+  const [showBiomeSelector, setShowBiomeSelector] = useState(false);
+  const [showConsole, setShowConsole] = useState(false);
+  const [consoleInput, setConsoleInput] = useState("");
   const [selectedBirdSkin, setSelectedBirdSkin] = useState<string>(() => {
     return localStorage.getItem("szenyo_madar_selected_skin") || "classic";
+  });
+  const [startingBiome, setStartingBiome] = useState<number>(() => {
+    const saved = localStorage.getItem("szenyo_madar_starting_biome");
+    return saved ? parseInt(saved, 10) : 0;
   });
 
   // Bird skins definition
@@ -444,6 +451,46 @@ export default function SzenyoMadar() {
     }
   }, [isSkinUnlocked]);
 
+  // Helper: Select starting biome
+  const selectStartingBiome = useCallback((biomeIndex: number) => {
+    setStartingBiome(biomeIndex);
+    localStorage.setItem("szenyo_madar_starting_biome", biomeIndex.toString());
+  }, []);
+
+  // Helper: Handle console commands
+  const handleConsoleCommand = useCallback((command: string) => {
+    const cmd = command.toLowerCase().trim();
+    
+    if (cmd === "szeretlekmario") {
+      // Unlock all bird skins
+      const unlockedAchievements = [
+        { id: 'first_flight', name: 'Első Repülés', description: 'Repülj először!', unlocked: true, icon: '🐣' },
+        { id: 'coin_collector', name: 'Érme Gyűjtő', description: 'Gyűjts 50 érmét!', unlocked: true, icon: '💰' },
+        { id: 'high_flyer', name: 'Magas Repülő', description: 'Érj el 20 pontot!', unlocked: true, icon: '🚀' },
+        { id: 'power_user', name: 'Power Felhasználó', description: 'Használj 10 power-upot!', unlocked: true, icon: '⚡' },
+        { id: 'shield_master', name: 'Pajzs Mester', description: 'Túlélj 5 ütközést pajzzsal!', unlocked: true, icon: '🛡️' },
+        { id: 'rainbow_rider', name: 'Szivárvány Lovas', description: 'Használd a rainbow mode-ot!', unlocked: true, icon: '🌈' }
+      ];
+      
+      setAchievements(unlockedAchievements);
+      localStorage.setItem("szenyo_madar_achievements", JSON.stringify(unlockedAchievements));
+      
+      // Give lots of coins for score-based skins
+      setCoins(999);
+      localStorage.setItem("szenyo_madar_coins", "999");
+      
+      // Set high score for score-based unlocks
+      setBest(999);
+      localStorage.setItem("szenyo_madar_best", "999");
+      
+      alert("🎉 Minden madár skin feloldva! Mario ❤️");
+      setShowConsole(false);
+      setConsoleInput("");
+    } else {
+      alert("❌ Ismeretlen parancs. Próbáld meg újra!");
+    }
+  }, []);
+
   // Weather rendszer
   const weather = useRef({
     type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog' | 'aurora' | 'current' | 'storm',
@@ -495,7 +542,8 @@ export default function SzenyoMadar() {
     }
   ]);
 
-  const currentBiome = useRef<Biome>(biomes.current[0]);
+  // Initialize current biome with the selected starting biome
+  const currentBiome = useRef<Biome>(biomes.current[startingBiome] || biomes.current[0]);
   const biomeTransitionScore = useRef(0);
 
   // Sprite animációk definiálása (pixel koordinátákban)
@@ -805,6 +853,10 @@ export default function SzenyoMadar() {
     gameCoins.current = [];
     time.current = { last: 0, acc: 0, frameCount: 0, cameraShake: 0, slowMotion: false, lastTap: 0, tapCooldown: 150 };
     
+    // Set starting biome
+    currentBiome.current = biomes.current[startingBiome];
+    biomeTransitionScore.current = -10; // Reset transition score
+    
     // Kezdő háttér objektumok
     bgObjects.current = [];
     for (let i = 0; i < 3; i++) {
@@ -816,7 +868,7 @@ export default function SzenyoMadar() {
         speed: 0.3 + Math.random() * 0.2
       });
     }
-  }, [selectedBirdSkin]);
+  }, [selectedBirdSkin, startingBiome]);
 
   // Ugrás (input) - debounce-al a smooth mobil élményért
   const flap = useCallback(() => {
@@ -3284,6 +3336,13 @@ export default function SzenyoMadar() {
     return () => window.removeEventListener('resize', resizeCanvas);
   }, [resizeCanvas]);
 
+  // Update current biome when starting biome changes
+  useEffect(() => {
+    if (state === GameState.MENU || state === GameState.GAMEOVER) {
+      currentBiome.current = biomes.current[startingBiome] || biomes.current[0];
+    }
+  }, [startingBiome, state]);
+
   // Game loop indítás
   useEffect(() => {
     rafRef.current = requestAnimationFrame(gameLoop);
@@ -3512,6 +3571,12 @@ export default function SzenyoMadar() {
                   🐦 MADÁR VÁLASZTÁS ({getUnlockedSkinsCount()}/{birdSkins.current.length})
                 </button>
                 <button 
+                  onClick={() => setShowBiomeSelector(!showBiomeSelector)}
+                  className="pixel-button px-6 py-3 text-lg block mx-auto"
+                >
+                  🌍 BIOM VÁLASZTÁS
+                </button>
+                <button 
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="pixel-button px-6 py-3 text-lg block mx-auto"
                 >
@@ -3522,6 +3587,12 @@ export default function SzenyoMadar() {
                   className="pixel-button px-6 py-3 text-lg block mx-auto"
                 >
                   ⚙️ SEBESSÉG BEÁLLÍTÁSOK
+                </button>
+                <button 
+                  onClick={() => setShowConsole(!showConsole)}
+                  className="pixel-button px-6 py-3 text-sm block mx-auto"
+                >
+                  💻 TERMINAL
                 </button>
                 <button 
                   onClick={() => setDebug(!debug)}
@@ -3757,7 +3828,11 @@ export default function SzenyoMadar() {
                               {key === 'magnetBonus' && '🧲 Mágnes'}
                               {key === 'shieldDuration' && '🛡️ Pajzs'}
                               {key === 'coinValue' && '💰 Érme'}
-                              : {((value as number) * 100).toFixed(0)}%
+                              {key === 'extraLives' && `❤️ +${value} élet`}
+                              {key === 'canShoot' && value && '🔫 Lövés'}
+                              {key === 'autoShield' && `🛡️ Auto ${value}s`}
+                              {typeof value === 'number' && key !== 'extraLives' && key !== 'autoShield' && !key.includes('can') && 
+                                `: ${((value as number) * 100).toFixed(0)}%`}
                             </div>
                           ))}
                         </div>
@@ -3782,6 +3857,115 @@ export default function SzenyoMadar() {
               >
                 ❌ Bezárás
               </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Biome Selector */}
+        {showBiomeSelector && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center pointer-events-auto">
+            <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+              <h2 className="pixel-text text-white text-2xl mb-4 text-center">🌍 BIOM VÁLASZTÁS</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {biomes.current.map((biome, index) => {
+                  const isSelected = startingBiome === index;
+                  
+                  return (
+                    <button 
+                      key={biome.id}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        isSelected 
+                          ? 'border-yellow-400 bg-yellow-900 bg-opacity-50' 
+                          : 'border-gray-600 bg-gray-700 hover:border-gray-400'
+                      }`}
+                      onClick={() => selectStartingBiome(index)}
+                    >
+                      <div className="text-2xl mb-2">
+                        {biome.id === 'forest' && '🌲'}
+                        {biome.id === 'city' && '🏙️'}
+                        {biome.id === 'space' && '🚀'}
+                        {biome.id === 'ocean' && '🌊'}
+                      </div>
+                      <div className="text-white font-bold text-lg">{biome.name}</div>
+                      <div className="text-sm text-gray-300 mb-2">
+                        {biome.id === 'forest' && 'Fák és természetes akadályok'}
+                        {biome.id === 'city' && 'Futurisztikus épületek és neon fények'}
+                        {biome.id === 'space' && 'Aszteroidák és űrállomások'}
+                        {biome.id === 'ocean' && 'Korallzátonyok és hajóroncsok'}
+                      </div>
+                      <div className="text-xs text-blue-400">
+                        Power-up bonus: {((biome.powerUpBonus || 1) * 100).toFixed(0)}%
+                      </div>
+                      
+                      {isSelected && (
+                        <div className="text-green-400 text-sm mt-2 font-bold">✓ KIVÁLASZTVA</div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <div className="text-center text-sm text-gray-400 mb-4">
+                A játék ezzel a biommal kezdődik (10 pontonként vált át)
+              </div>
+              
+              <button 
+                onClick={() => setShowBiomeSelector(false)}
+                className="pixel-button px-6 py-3 w-full"
+              >
+                ❌ Bezárás
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Console/Terminal */}
+        {showConsole && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center pointer-events-auto">
+            <div className="bg-black border-2 border-green-400 rounded-lg p-6 max-w-md w-full mx-4">
+              <h2 className="text-green-400 text-xl mb-4 font-mono text-center">💻 SZENYO-TERMINAL</h2>
+              
+              <div className="bg-gray-900 p-4 rounded mb-4 font-mono text-sm">
+                <div className="text-green-400">szenyo@madar:~$ </div>
+                <div className="text-gray-400 text-xs mb-2">Írj be egy parancsot...</div>
+              </div>
+              
+              <input 
+                type="text"
+                value={consoleInput}
+                onChange={(e) => setConsoleInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleConsoleCommand(consoleInput);
+                  }
+                }}
+                className="w-full px-3 py-2 bg-gray-900 border border-green-400 text-green-400 font-mono rounded mb-4 focus:outline-none focus:border-green-300"
+                placeholder="Parancs..."
+                autoFocus
+              />
+              
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => handleConsoleCommand(consoleInput)}
+                  className="bg-green-600 hover:bg-green-500 text-white font-mono px-4 py-2 rounded flex-1"
+                >
+                  FUTTAT
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowConsole(false);
+                    setConsoleInput("");
+                  }}
+                  className="bg-red-600 hover:bg-red-500 text-white font-mono px-4 py-2 rounded flex-1"
+                >
+                  BEZÁR
+                </button>
+              </div>
+              
+              <div className="text-xs text-gray-500 mt-4 text-center font-mono">
+                Tipp: Próbálj ki különböző parancsokat! 😉
+              </div>
             </div>
           </div>
         )}
