@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/flappy/',
+  base: './', // Relative paths for better deployment compatibility
   server: {
     port: 3000,
     host: '0.0.0.0', // Ez teszi elérhetővé a helyi hálózatról
