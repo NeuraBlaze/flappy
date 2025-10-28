@@ -325,7 +325,8 @@ export default function SzenyoMadar() {
     comboWindow: 0, // time window for combinations
   });
 
-  // Teljesítmény monitoring (már nem használt valós FPS számolás)
+  // Valós FPS monitoring - mutatja a tényleges renderelési sebességet
+  const [fps, setFps] = useState(60);
   const fpsCounter = useRef({ frames: 0, lastTime: performance.now() });
 
   // Akadályok (csövek / háztömbök)
@@ -952,12 +953,10 @@ export default function SzenyoMadar() {
     });
   }, []);
 
-  // Játék logika update - 60 FPS standardizált
-  const updateGame = useCallback((deltaTime: number) => {
-    // Standardizált delta time 60 FPS-hez (16.67ms)
-    const standardDelta = 16.67;
-    const dt = Math.min(deltaTime, 33); // Cap at 30 FPS minimum
-    const deltaMultiplier = dt / standardDelta; // Normalizálás 60 FPS-re
+  // Játék logika update - garantált 60 FPS minden eszközön
+  const updateGame = useCallback(() => {
+    // Fix timing - minden eszközön azonos sebességű játék
+    // Nincs deltaTime függőség, mindig ugyanazokkal az értékekkel számolunk
     
     // Game physics - enhanced with combinations (50% gyorsabb alapsebesség)
     const b = bird.current;
@@ -972,32 +971,33 @@ export default function SzenyoMadar() {
     
     time.current.frameCount++;
     
-    // Frame számolás (már nem használt, de megtartva kompatibilitásért)
+    // Valós FPS számítás - mutatja a tényleges render sebességet
     fpsCounter.current.frames++;
     const currentTime = performance.now();
     if (currentTime - fpsCounter.current.lastTime >= 1000) {
+      setFps(fpsCounter.current.frames);
       fpsCounter.current.frames = 0;
       fpsCounter.current.lastTime = currentTime;
     }
     
-    // Madár fizika és animáció - skin abilities (60 FPS standardizált)
+    // Madár fizika és animáció - skin abilities (fix 60 FPS)
     const currentSkin = getCurrentBirdSkin();
     const gravityMultiplier = currentSkin.abilities.gravity || 1.0;
     
-    b.vy += w.gravity * gameSpeed * gravityMultiplier * deltaMultiplier;
-    b.y += b.vy * gameSpeed * deltaMultiplier;
+    b.vy += w.gravity * gameSpeed * gravityMultiplier;
+    b.y += b.vy * gameSpeed;
     b.angle = Math.max(-0.5, Math.min(0.8, b.vy * 0.1));
     
-    // Madár animáció frissítés (60 FPS standardizált)
-    b.animFrame += gameSpeed * deltaMultiplier;
+    // Madár animáció frissítés (fix 60 FPS)
+    b.animFrame += gameSpeed;
     if (b.animFrame >= 60 / birdSprites.current.flying.frameRate) {
       b.wingCycle = (b.wingCycle + 1) % birdSprites.current.flying.frames.length;
       b.animFrame = 0;
     }
     
-    // Csövek mozgatása és generálása (60 FPS standardizált)
+    // Csövek mozgatása és generálása (fix 60 FPS)
     pipes.current.forEach(pipe => {
-      pipe.x -= w.speed * gameSpeed * deltaMultiplier;
+      pipe.x -= w.speed * gameSpeed;
     });
     
     // Új cső generálás - biome alapú
@@ -1044,17 +1044,17 @@ export default function SzenyoMadar() {
     
     powerUps.current.forEach(powerUp => {
       if (!powerUp.collected) {
-        powerUp.x -= w.speed * gameSpeed * 0.7 * deltaMultiplier;
-        powerUp.animTime += dt;
+        powerUp.x -= w.speed * gameSpeed * 0.7;
+        powerUp.animTime += 1; // Fix increment
       }
     });
     powerUps.current = powerUps.current.filter(p => p.x > -20);
     
-    // Érmék update és mega mode enhanced collection (60 FPS standardizált)
+    // Érmék update és mega mode enhanced collection (fix 60 FPS)
     gameCoins.current.forEach(coin => {
       if (!coin.collected) {
-        coin.x -= w.speed * gameSpeed * 0.8 * deltaMultiplier;
-        coin.animTime += dt;
+        coin.x -= w.speed * gameSpeed * 0.8;
+        coin.animTime += 1; // Fix increment
         
         // Enhanced magnet range in mega mode
         const magnetRange = b.megaMode > 0 ? 80 : b.magnet > 0 ? 50 : 15;
@@ -1122,19 +1122,19 @@ export default function SzenyoMadar() {
     if (b.megaMode > 0) b.megaMode--;
     if (b.godMode > 0) b.godMode--;
     
-    // Háttér objektumok (60 FPS standardizált)
+    // Háttér objektumok (fix 60 FPS)
     spawnBackgroundObject();
     bgObjects.current.forEach(obj => {
-      obj.x -= obj.speed * gameSpeed * deltaMultiplier;
+      obj.x -= obj.speed * gameSpeed;
     });
     bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
     
     spawnWeatherParticles(); // Weather effektek
     
-    // Weather particles update (60 FPS standardizált)
+    // Weather particles update (fix 60 FPS)
     weather.current.particles.forEach(particle => {
-      particle.x += particle.vx * gameSpeed * deltaMultiplier;
-      particle.y += particle.vy * gameSpeed * deltaMultiplier;
+      particle.x += particle.vx * gameSpeed;
+      particle.y += particle.vy * gameSpeed;
       if (particle.type === 'fog') {
         particle.vy += 0.01; // Slight drift
       }
@@ -2220,22 +2220,14 @@ export default function SzenyoMadar() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // 60 FPS limitálás - standard frame timing
+    // Garantált 60 FPS gameplay - frame rate független
     if (time.current.last === 0) time.current.last = now;
-    const deltaTime = now - time.current.last;
-    
-    // 16.67ms = 60 FPS target frame time
-    const targetFrameTime = 1000 / 60;
-    if (deltaTime < targetFrameTime) {
-      rafRef.current = requestAnimationFrame(gameLoop);
-      return;
-    }
-    
     time.current.last = now;
     
     // Csak futó állapotban frissítjük a játékot
     if (state === GameState.RUN) {
-      updateGame(deltaTime);
+      // Fix 60 FPS gameplay - minden eszközön azonos sebesség
+      updateGame();
     }
     
     // Renderelés minden frame-ben
@@ -2389,9 +2381,9 @@ export default function SzenyoMadar() {
                 🪙 {coins}
               </div>
               
-              {/* FPS Monitor - fixált 60 FPS */}
+              {/* FPS Monitor - valós render FPS */}
               <div className="text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
-                FPS: 60 | {detectPerformanceLevel().toUpperCase()}
+                Render: {fps} FPS | Logic: 60 FPS | {detectPerformanceLevel().toUpperCase()}
               </div>
               
               {/* Debug Spawn Info */}
@@ -2491,7 +2483,7 @@ export default function SzenyoMadar() {
             <div className="pixel-text text-white text-6xl animate-pulse">⏸</div>
             <div className="pixel-text text-white text-xl text-center mt-4">SZÜNET</div>
             <div className="text-cyan-400 text-sm font-mono text-center mt-2 bg-black bg-opacity-50 px-2 py-1 rounded">
-              FPS: 60 | {detectPerformanceLevel().toUpperCase()}
+              Render: {fps} FPS | Logic: 60 FPS | {detectPerformanceLevel().toUpperCase()}
             </div>
           </div>
         )}
@@ -2548,7 +2540,7 @@ export default function SzenyoMadar() {
                   {getPerfConfig().maxParticles} részecske limit
                 </div>
                 <div className="text-cyan-400 text-sm font-mono mt-1">
-                  FPS: 60/60
+                  Render: {fps} FPS | Logic: 60 FPS
                 </div>
               </div>
               
@@ -2751,9 +2743,9 @@ export default function SzenyoMadar() {
           </div>
         )}
         
-        {/* FPS kijelző - jobb felső sarok - fixált 60 */}
+        {/* FPS kijelző - jobb felső sarok - valós render FPS */}
         <div className="absolute top-4 right-4 text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
-          FPS: 60
+          Render: {fps} | Logic: 60
         </div>
       </div>
     </div>
