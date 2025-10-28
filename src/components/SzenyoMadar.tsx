@@ -84,13 +84,26 @@ const PERFORMANCE_CONFIG = {
   
   // Minimális teljesítmény - nagyon gyenge gépek
   minimal: {
-    maxParticles: 30,
-    maxPowerUps: 4,
-    maxCoins: 6,
+    maxParticles: 20,
+    maxPowerUps: 3,
+    maxCoins: 4,
     animationInterval: 1000 / 30, // 30 FPS target
     reducedEffects: true,
     simplifiedRendering: true,
-    weatherIntensity: 0.3
+    weatherIntensity: 0.2
+  },
+  
+  // Ultra-light mód - mobilokra optimalizálva
+  ultraLight: {
+    maxParticles: 10,
+    maxPowerUps: 2,
+    maxCoins: 3,
+    animationInterval: 1000 / 25, // 25 FPS target
+    reducedEffects: true,
+    simplifiedRendering: true,
+    weatherIntensity: 0.1,
+    disableWeather: true,
+    disableBackgroundObjects: true
   }
 };
 
@@ -98,31 +111,42 @@ const PERFORMANCE_CONFIG = {
 const detectPerformanceLevel = () => {
   const ua = navigator.userAgent.toLowerCase();
   
-  // Mobil eszköz detektálás
+  // Mobil eszköz detektálás - részletesebb
   const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+  const isTablet = /ipad|android(?=.*tablet)|tablet/i.test(ua);
+  const isPhone = isMobile && !isTablet;
   
-  // Régi böngésző detektálás
+  // Régi/gyenge mobil eszközök detektálása
+  const isOldMobile = /android 4|android 5|iphone os [4-9]|old webkit/i.test(ua);
+  
+  // Böngésző típusok
   const isOldBrowser = ua.includes('msie') || ua.includes('trident');
-  
-  // Opera detektálás
-  const isOpera = ua.includes('opera') || ua.includes('opr');
-  
-  // Safari detektálás (gyakran lassabb canvas teljesítmény)
   const isSafari = ua.includes('safari') && !ua.includes('chrome');
-  
-  // Firefox detektálás
   const isFirefox = ua.includes('firefox');
   
-  // CPU mag számok becslése
+  // Hardver info
   const cores = navigator.hardwareConcurrency || 2;
-  
-  // Memory becslése (ha elérhető)
   const memory = (navigator as any).deviceMemory || 4;
   
-  // Automatikus teljesítmény szint meghatározás
-  if (isOldBrowser || isMobile && memory < 3) return 'minimal';
-  if (isMobile || isSafari || isFirefox || cores < 4 || memory < 4) return 'low';
-  if (isOpera || cores < 8 || memory < 8) return 'medium';
+  // Screen size alapú detektálás (kis képernyő = mobil)
+  const isSmallScreen = window.innerWidth < 768 || window.innerHeight < 600;
+  
+  // Touch support detektálás
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  
+  // Agresszív mobil optimalizáció
+  if (isPhone || isOldMobile || (isMobile && (cores < 4 || memory < 3))) {
+    return 'ultraLight';
+  }
+  
+  if (isMobile || isTablet || (isTouchDevice && isSmallScreen)) {
+    return 'minimal';
+  }
+  
+  // Desktop optimalizáció
+  if (isOldBrowser || (cores < 4 && memory < 4)) return 'minimal';
+  if (isSafari || isFirefox || cores < 8 || memory < 8) return 'low';
+  if (cores < 12 || memory < 16) return 'medium';
   return 'high';
 };
 
@@ -599,7 +623,8 @@ export default function SzenyoMadar() {
     const weatherData = weather.current;
     const perfConfig = getPerfConfig();
     
-    if (weatherData.type === 'clear') return;
+    // Ultra-light módban időjárás kikapcsolva
+    if ((perfConfig as any).disableWeather || weatherData.type === 'clear') return;
     
     // Adaptív időjárás intenzitás a teljesítmény szint alapján
     const adjustedIntensity = weatherData.intensity * (perfConfig.weatherIntensity || 1.0);
@@ -1130,13 +1155,17 @@ export default function SzenyoMadar() {
     if (b.megaMode > 0) b.megaMode--;
     if (b.godMode > 0) b.godMode--;
     
-    // Háttér objektumok
-    spawnBackgroundObject();
+    // Háttér objektumok - csak ha engedélyezve van
+    const perfConfigUpdate = getPerfConfig();
+    if (!(perfConfigUpdate as any).disableBackgroundObjects) {
+      spawnBackgroundObject();
+      bgObjects.current.forEach(obj => {
+        obj.x -= obj.speed * gameSpeed;
+      });
+      bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
+    }
+    
     spawnWeatherParticles(); // Weather effektek
-    bgObjects.current.forEach(obj => {
-      obj.x -= obj.speed * gameSpeed;
-    });
-    bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
     
     // Weather particles update
     weather.current.particles.forEach(particle => {
@@ -1178,14 +1207,21 @@ export default function SzenyoMadar() {
       weather.current.intensity = weather.current.type === 'clear' ? 0 : 0.3 + Math.random() * 0.7;
     }
     
-    // Részecskék update
+    // Részecskék update - agresszív tisztítás mobilon
+    const mobileParticleOptim = getPerfConfig();
     particles.current.forEach(particle => {
       particle.x += particle.vx;
       particle.y += particle.vy;
       particle.vy += 0.1; // gravity
       particle.life--;
     });
-    particles.current = particles.current.filter(p => p.life > 0);
+    
+    // Ultra-light módban még agresszívebb részecske limitálás
+    if (detectPerformanceLevel() === 'ultraLight') {
+      particles.current = particles.current.filter(p => p.life > 0).slice(-mobileParticleOptim.maxParticles);
+    } else {
+      particles.current = particles.current.filter(p => p.life > 0);
+    }
     
     // Power-up ütközések
     checkPowerUpCollisions();
@@ -1295,19 +1331,20 @@ export default function SzenyoMadar() {
       return `#${((newR << 16) | (newG << 8) | newB).toString(16).padStart(6, '0')}`;
     }
     
-    // Háttér objektumok
-    bgObjects.current.forEach(obj => {
-      ctx.fillStyle = obj.type === 'cloud' ? 'rgba(255,255,255,0.6)' : '#FFFF99';
-      if (obj.type === 'cloud') {
-        // Egyszerű felhő
-        ctx.beginPath();
-        ctx.arc(obj.x, obj.y, obj.size * 0.6, 0, Math.PI * 2);
-        ctx.arc(obj.x + obj.size * 0.5, obj.y, obj.size * 0.4, 0, Math.PI * 2);
-        ctx.arc(obj.x - obj.size * 0.3, obj.y, obj.size * 0.3, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        // Csillag
-        const spikes = 5;
+    // Háttér objektumok - ultra-light módban kikapcsolva
+    if (!(perfConfig as any).disableBackgroundObjects) {
+      bgObjects.current.forEach(obj => {
+        ctx.fillStyle = obj.type === 'cloud' ? 'rgba(255,255,255,0.6)' : '#FFFF99';
+        if (obj.type === 'cloud') {
+          // Egyszerű felhő
+          ctx.beginPath();
+          ctx.arc(obj.x, obj.y, obj.size * 0.6, 0, Math.PI * 2);
+          ctx.arc(obj.x + obj.size * 0.5, obj.y, obj.size * 0.4, 0, Math.PI * 2);
+          ctx.arc(obj.x - obj.size * 0.3, obj.y, obj.size * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Csillag
+          const spikes = 5;
         const outerRadius = obj.size * 0.5;
         const innerRadius = outerRadius * 0.4;
         ctx.beginPath();
@@ -1323,6 +1360,7 @@ export default function SzenyoMadar() {
         ctx.fill();
       }
     });
+    }
     
     // Csövek/épületek/akadályok - biome based rendering
     pipes.current.forEach(pipe => {
