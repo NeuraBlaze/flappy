@@ -47,38 +47,89 @@ interface AnimationData {
 }
 
 // Particle típusok
-// Teljesítmény optimalizáció konstansok
+// Adaptív teljesítmény optimalizáció konstansok
 const PERFORMANCE_CONFIG = {
-  // Alapértelmezett beállítások
-  default: {
-    maxParticles: 150,
-    maxPowerUps: 8,
-    maxCoins: 10,
+  // Nagy teljesítmény - erős gépek
+  high: {
+    maxParticles: 200,
+    maxPowerUps: 10,
+    maxCoins: 12,
     animationInterval: 1000 / 60, // 60 FPS target
     reducedEffects: false,
-    simplifiedRendering: false
+    simplifiedRendering: false,
+    weatherIntensity: 1.0
   },
   
-  // Opera böngésző optimalizációk - enyhébb limitek a gameplay érdekében
-  opera: {
-    maxParticles: 100,
-    maxPowerUps: 6, // Növelve 5-ről 6-ra
-    maxCoins: 8,    // Növelve 6-ról 8-ra
-    animationInterval: 1000 / 50, // 50 FPS Opera-hoz
+  // Közepes teljesítmény - átlagos gépek
+  medium: {
+    maxParticles: 120,
+    maxPowerUps: 8,
+    maxCoins: 10,
+    animationInterval: 1000 / 50, // 50 FPS target
+    reducedEffects: false,
+    simplifiedRendering: false,
+    weatherIntensity: 0.8
+  },
+  
+  // Alacsony teljesítmény - gyenge gépek/böngészők
+  low: {
+    maxParticles: 60,
+    maxPowerUps: 6,
+    maxCoins: 8,
+    animationInterval: 1000 / 45, // 45 FPS target
     reducedEffects: true,
-    simplifiedRendering: true
+    simplifiedRendering: true,
+    weatherIntensity: 0.5
+  },
+  
+  // Minimális teljesítmény - nagyon gyenge gépek
+  minimal: {
+    maxParticles: 30,
+    maxPowerUps: 4,
+    maxCoins: 6,
+    animationInterval: 1000 / 30, // 30 FPS target
+    reducedEffects: true,
+    simplifiedRendering: true,
+    weatherIntensity: 0.3
   }
 };
 
-// Böngésző detektálás
-const isOpera = () => {
-  return (navigator.userAgent.indexOf("Opera") !== -1 || 
-          navigator.userAgent.indexOf("OPR") !== -1);
+// Böngésző és hardver detektálás
+const detectPerformanceLevel = () => {
+  const ua = navigator.userAgent.toLowerCase();
+  
+  // Mobil eszköz detektálás
+  const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+  
+  // Régi böngésző detektálás
+  const isOldBrowser = ua.includes('msie') || ua.includes('trident');
+  
+  // Opera detektálás
+  const isOpera = ua.includes('opera') || ua.includes('opr');
+  
+  // Safari detektálás (gyakran lassabb canvas teljesítmény)
+  const isSafari = ua.includes('safari') && !ua.includes('chrome');
+  
+  // Firefox detektálás
+  const isFirefox = ua.includes('firefox');
+  
+  // CPU mag számok becslése
+  const cores = navigator.hardwareConcurrency || 2;
+  
+  // Memory becslése (ha elérhető)
+  const memory = (navigator as any).deviceMemory || 4;
+  
+  // Automatikus teljesítmény szint meghatározás
+  if (isOldBrowser || isMobile && memory < 3) return 'minimal';
+  if (isMobile || isSafari || isFirefox || cores < 4 || memory < 4) return 'low';
+  if (isOpera || cores < 8 || memory < 8) return 'medium';
+  return 'high';
 };
 
 // Dinamikus teljesítmény konfig
 const getPerfConfig = () => {
-  return isOpera() ? PERFORMANCE_CONFIG.opera : PERFORMANCE_CONFIG.default;
+  const level = detectPerformanceLevel();
+  return PERFORMANCE_CONFIG[level as keyof typeof PERFORMANCE_CONFIG];
 };
 
 interface Particle {
@@ -550,8 +601,8 @@ export default function SzenyoMadar() {
     
     if (weatherData.type === 'clear') return;
     
-    // Opera esetén csökkentett időjárás intenzitás
-    const adjustedIntensity = perfConfig.reducedEffects ? weatherData.intensity * 0.5 : weatherData.intensity;
+    // Adaptív időjárás intenzitás a teljesítmény szint alapján
+    const adjustedIntensity = weatherData.intensity * (perfConfig.weatherIntensity || 1.0);
     const spawnRate = adjustedIntensity * 0.1;
     
     if (Math.random() < spawnRate) {
@@ -2176,6 +2227,14 @@ export default function SzenyoMadar() {
     // Delta time számítás
     if (time.current.last === 0) time.current.last = now;
     const deltaTime = now - time.current.last;
+    
+    // Teljesítmény-alapú frame skipping
+    const perfConfig = getPerfConfig();
+    if (deltaTime < perfConfig.animationInterval) {
+      rafRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    
     time.current.last = now;
     
     // Csak futó állapotban frissítjük a játékot
@@ -2334,10 +2393,10 @@ export default function SzenyoMadar() {
                 🪙 {coins}
               </div>
               
-              {/* FPS Monitor (Opera optimalizáció esetén) */}
-              {isOpera() && (
+              {/* Performance Monitor (alacsony teljesítmény esetén) */}
+              {(detectPerformanceLevel() === 'low' || detectPerformanceLevel() === 'minimal') && (
                 <div className="text-cyan-400 text-sm font-mono">
-                  FPS: {fps}
+                  FPS: {fps} | {detectPerformanceLevel().toUpperCase()}
                 </div>
               )}
               
@@ -2476,6 +2535,23 @@ export default function SzenyoMadar() {
                   {debug ? '🔍 DEBUG KI' : '🔍 DEBUG BE'}
                 </button>
               </div>
+              
+              {/* Teljesítmény indikátor */}
+              <div className="mt-6 px-4 py-2 bg-gray-800 bg-opacity-50 rounded-lg">
+                <div className="text-sm text-gray-300">
+                  Detektált teljesítmény: <span className={`font-bold ${
+                    detectPerformanceLevel() === 'high' ? 'text-green-400' :
+                    detectPerformanceLevel() === 'medium' ? 'text-yellow-400' :
+                    detectPerformanceLevel() === 'low' ? 'text-orange-400' : 'text-red-400'
+                  }`}>
+                    {detectPerformanceLevel().toUpperCase()}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {getPerfConfig().maxParticles} részecske | {(60000 / getPerfConfig().animationInterval).toFixed(0)} FPS cél
+                </div>
+              </div>
+              
               <div className="mt-8">
                 <div className="pixel-text text-yellow-400 text-xl">
                   🏆 Best: {best}
