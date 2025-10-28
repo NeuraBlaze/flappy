@@ -1624,9 +1624,58 @@ export default function SzenyoMadar() {
         ctx.fillStyle = currentSkin.bodyColor;
       }
     }
-    ctx.beginPath();
-    ctx.arc(0, bodyY, b.r, 0, Math.PI * 2);
-    ctx.fill();
+    
+    // Skin-specific body shape modifications
+    if (currentSkin.id === 'penguin') {
+      // Penguin: More oval, standing upright
+      ctx.beginPath();
+      ctx.ellipse(0, bodyY, b.r * 0.8, b.r * 1.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Penguin belly (white)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(2, bodyY, b.r * 0.4, b.r * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'eagle') {
+      // Eagle: Slightly larger, more majestic
+      ctx.beginPath();
+      ctx.arc(0, bodyY, b.r * 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'duck') {
+      // Duck: Round and chubby
+      ctx.beginPath();
+      ctx.arc(0, bodyY, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Duck's orange beak area
+      ctx.fillStyle = '#FFA500';
+      ctx.beginPath();
+      ctx.ellipse(3, bodyY - 2, 3, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'dove') {
+      // Dove: Elegant, slightly smaller
+      ctx.beginPath();
+      ctx.arc(0, bodyY, b.r * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'parrot') {
+      // Parrot: Colorful stripes
+      ctx.beginPath();
+      ctx.arc(0, bodyY, b.r, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Parrot stripes
+      ctx.strokeStyle = '#00CED1';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, bodyY, b.r * 0.7, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      // Classic bird
+      ctx.beginPath();
+      ctx.arc(0, bodyY, b.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     
     // Szárnyak animációja - enhanced colors with skin
     let wingColor = currentSkin.wingColor;
@@ -1636,45 +1685,253 @@ export default function SzenyoMadar() {
     else if (b.rainbow > 0) wingColor = '#FF69B4';
     
     ctx.fillStyle = wingColor;
+    
+    // Skin-specific wing shapes and animations
     switch (currentFrame.wing) {
       case 'up':
-        // Szárny felfelé
-        ctx.beginPath();
-        ctx.ellipse(-5, bodyY - 8, 8, 4, -0.5, 0, Math.PI * 2);
-        ctx.fill();
+        if (currentSkin.id === 'eagle') {
+          // Eagle: Larger, more pointed wings
+          ctx.beginPath();
+          ctx.ellipse(-6, bodyY - 10, 12, 6, -0.4, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'penguin') {
+          // Penguin: Small flippers
+          ctx.beginPath();
+          ctx.ellipse(-3, bodyY - 4, 4, 2, -0.8, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'duck') {
+          // Duck: Rounded wings
+          ctx.beginPath();
+          ctx.ellipse(-5, bodyY - 8, 8, 5, -0.3, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'dove') {
+          // Dove: Graceful, long wings
+          ctx.beginPath();
+          ctx.ellipse(-7, bodyY - 9, 10, 4, -0.3, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'parrot') {
+          // Parrot: Colorful layered wings
+          ctx.beginPath();
+          ctx.ellipse(-5, bodyY - 8, 8, 4, -0.5, 0, Math.PI * 2);
+          ctx.fill();
+          // Second wing layer
+          ctx.fillStyle = '#FF69B4';
+          ctx.beginPath();
+          ctx.ellipse(-4, bodyY - 7, 6, 3, -0.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Classic bird wing
+          ctx.beginPath();
+          ctx.ellipse(-5, bodyY - 8, 8, 4, -0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
       case 'middle':
-        // Szárny középen
-        ctx.beginPath();
-        ctx.ellipse(-8, bodyY - 2, 10, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
+        if (currentSkin.id === 'eagle') {
+          // Eagle: Spread wings
+          ctx.beginPath();
+          ctx.ellipse(-10, bodyY - 2, 14, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'penguin') {
+          // Penguin: Flippers at side
+          ctx.beginPath();
+          ctx.ellipse(-6, bodyY, 6, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'duck') {
+          // Duck: Wide wings
+          ctx.beginPath();
+          ctx.ellipse(-8, bodyY - 2, 10, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'dove') {
+          // Dove: Extended wings
+          ctx.beginPath();
+          ctx.ellipse(-9, bodyY - 2, 12, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'parrot') {
+          // Parrot: Colorful spread
+          ctx.beginPath();
+          ctx.ellipse(-8, bodyY - 2, 10, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#FF69B4';
+          ctx.beginPath();
+          ctx.ellipse(-7, bodyY - 1, 8, 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Classic bird wing
+          ctx.beginPath();
+          ctx.ellipse(-8, bodyY - 2, 10, 3, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
       case 'down':
-        // Szárny lefelé
-        ctx.beginPath();
-        ctx.ellipse(-5, bodyY + 5, 8, 4, 0.5, 0, Math.PI * 2);
-        ctx.fill();
+        if (currentSkin.id === 'eagle') {
+          // Eagle: Powerful downstroke
+          ctx.beginPath();
+          ctx.ellipse(-6, bodyY + 8, 12, 6, 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'penguin') {
+          // Penguin: Flippers down
+          ctx.beginPath();
+          ctx.ellipse(-3, bodyY + 3, 4, 2, 0.8, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'duck') {
+          // Duck: Rounded down
+          ctx.beginPath();
+          ctx.ellipse(-5, bodyY + 5, 8, 5, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'dove') {
+          // Dove: Gentle downstroke
+          ctx.beginPath();
+          ctx.ellipse(-7, bodyY + 6, 10, 4, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentSkin.id === 'parrot') {
+          // Parrot: Colorful down
+          ctx.beginPath();
+          ctx.ellipse(-5, bodyY + 5, 8, 4, 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#FF69B4';
+          ctx.beginPath();
+          ctx.ellipse(-4, bodyY + 4, 6, 3, 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Classic bird wing
+          ctx.beginPath();
+          ctx.ellipse(-5, bodyY + 5, 8, 4, 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
     }
     
-    // Madár szem
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(3, bodyY - 3, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#000000';
-    ctx.beginPath();
-    ctx.arc(4, bodyY - 3, 2, 0, Math.PI * 2);
-    ctx.fill();
+    // Madár szem - skin specific
+    if (currentSkin.id === 'eagle') {
+      // Eagle: Sharp, intense eyes
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(3, bodyY - 3, 5, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.ellipse(4, bodyY - 3, 3, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Eagle eyebrow
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(1, bodyY - 6);
+      ctx.lineTo(6, bodyY - 5);
+      ctx.stroke();
+    } else if (currentSkin.id === 'penguin') {
+      // Penguin: Round, friendly eyes
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(3, bodyY - 3, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(3, bodyY - 3, 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'duck') {
+      // Duck: Large, round eyes
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(3, bodyY - 3, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(4, bodyY - 3, 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'dove') {
+      // Dove: Gentle, soft eyes
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(3, bodyY - 3, 4, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.ellipse(4, bodyY - 3, 2, 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'parrot') {
+      // Parrot: Bright, intelligent eyes
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(3, bodyY - 3, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(4, bodyY - 3, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Colorful eye ring
+      ctx.strokeStyle = '#FF69B4';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(3, bodyY - 3, 5, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      // Classic bird eyes
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(3, bodyY - 3, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(4, bodyY - 3, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
     
-    // Csőr
-    ctx.fillStyle = '#FFA500';
-    ctx.beginPath();
-    ctx.moveTo(8, bodyY);
-    ctx.lineTo(15, bodyY - 2);
-    ctx.lineTo(15, bodyY + 2);
-    ctx.closePath();
-    ctx.fill();
+    // Csőr - skin specific
+    if (currentSkin.id === 'eagle') {
+      // Eagle: Sharp, hooked beak
+      ctx.fillStyle = '#8B4513';
+      ctx.beginPath();
+      ctx.moveTo(8, bodyY);
+      ctx.lineTo(16, bodyY - 3);
+      ctx.lineTo(15, bodyY + 1);
+      ctx.lineTo(12, bodyY + 2);
+      ctx.closePath();
+      ctx.fill();
+    } else if (currentSkin.id === 'penguin') {
+      // Penguin: Short, pointed beak
+      ctx.fillStyle = '#FFA500';
+      ctx.beginPath();
+      ctx.moveTo(8, bodyY);
+      ctx.lineTo(12, bodyY - 1);
+      ctx.lineTo(12, bodyY + 1);
+      ctx.closePath();
+      ctx.fill();
+    } else if (currentSkin.id === 'duck') {
+      // Duck: Wide, flat bill
+      ctx.fillStyle = '#FFA500';
+      ctx.beginPath();
+      ctx.ellipse(11, bodyY, 5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentSkin.id === 'dove') {
+      // Dove: Small, delicate beak
+      ctx.fillStyle = '#FFB6C1';
+      ctx.beginPath();
+      ctx.moveTo(8, bodyY);
+      ctx.lineTo(13, bodyY - 1);
+      ctx.lineTo(13, bodyY + 1);
+      ctx.closePath();
+      ctx.fill();
+    } else if (currentSkin.id === 'parrot') {
+      // Parrot: Curved, colorful beak
+      ctx.fillStyle = '#FF4500';
+      ctx.beginPath();
+      ctx.moveTo(8, bodyY);
+      ctx.quadraticCurveTo(12, bodyY - 3, 15, bodyY - 1);
+      ctx.lineTo(14, bodyY + 1);
+      ctx.quadraticCurveTo(11, bodyY + 1, 8, bodyY);
+      ctx.fill();
+    } else {
+      // Classic bird beak
+      ctx.fillStyle = '#FFA500';
+      ctx.beginPath();
+      ctx.moveTo(8, bodyY);
+      ctx.lineTo(15, bodyY - 2);
+      ctx.lineTo(15, bodyY + 2);
+      ctx.closePath();
+      ctx.fill();
+    }
     
     // Debug hitbox
     if (debug) {
