@@ -22,11 +22,11 @@ const GameState = {
 
 // Biome típusok
 interface Biome {
-  id: 'forest' | 'city' | 'space';
+  id: 'forest' | 'city' | 'space' | 'ocean';
   name: string;
   backgroundColors: string[];
-  obstacleTypes: ('pipe' | 'tree' | 'building' | 'asteroid' | 'satellite')[];
-  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog' | 'aurora')[];
+  obstacleTypes: ('pipe' | 'tree' | 'building' | 'asteroid' | 'satellite' | 'coral' | 'shipwreck')[];
+  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog' | 'aurora' | 'current' | 'storm')[];
   powerUpBonus: number; // power-up spawn rate multiplier
   musicTheme: string;
   particleColor: string;
@@ -416,7 +416,7 @@ export default function SzenyoMadar() {
 
   // Weather rendszer
   const weather = useRef({
-    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog' | 'aurora',
+    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog' | 'aurora' | 'current' | 'storm',
     intensity: 0,
     particles: [] as Particle[]
   });
@@ -452,6 +452,16 @@ export default function SzenyoMadar() {
       powerUpBonus: 1.5,
       musicTheme: 'cosmic',
       particleColor: '#9966FF'
+    },
+    {
+      id: 'ocean',
+      name: 'Óceán Mélység',
+      backgroundColors: ['#001122', '#003366', '#004488', '#0066CC'],
+      obstacleTypes: ['coral', 'shipwreck'], // coral = korallzátony, shipwreck = hajóroncs
+      weatherTypes: ['clear', 'current', 'storm'],
+      powerUpBonus: 1.3,
+      musicTheme: 'aquatic',
+      particleColor: '#00CCFF'
     }
   ]);
 
@@ -672,6 +682,34 @@ export default function SzenyoMadar() {
             color: ['#FF69B4', '#00FFFF', '#ADFF2F', '#9370DB'][Math.floor(Math.random() * 4)],
             size: 30 + Math.random() * 40,
             type: 'aurora' as any
+          };
+          break;
+        case 'current':
+          // Óceáni áramlatok - buborékok és tengeri részecskék
+          particle = {
+            x: -10,
+            y: Math.random() * w.h,
+            vx: 1 + Math.random() * 3,
+            vy: Math.sin(Math.random() * Math.PI * 2) * 0.5,
+            life: 300,
+            maxLife: 300,
+            color: ['#00BFFF', '#87CEEB', '#B0E0E6', '#ADD8E6'][Math.floor(Math.random() * 4)],
+            size: 3 + Math.random() * 8,
+            type: 'sparkle' as any
+          };
+          break;
+        case 'storm':
+          // Óceáni vihar - sötét buborékok és vízi forgók
+          particle = {
+            x: Math.random() * w.w,
+            y: Math.random() * w.h,
+            vx: Math.random() * 4 - 2,
+            vy: Math.random() * 2 + 1,
+            life: 200,
+            maxLife: 200,
+            color: ['#2F4F4F', '#708090', '#778899', '#696969'][Math.floor(Math.random() * 4)],
+            size: 5 + Math.random() * 12,
+            type: 'explosion' as any
           };
           break;
         default:
@@ -1265,6 +1303,21 @@ export default function SzenyoMadar() {
       case 'aurora':
         // Keep original colors but add aurora effects later
         break;
+      case 'current':
+        // Óceáni áramlatok - kék színek hangsúlyozása
+        colors = colors.map(c => {
+          const num = parseInt(c.replace("#", ""), 16);
+          const r = Math.max(0, (num >> 16) - 50);
+          const g = Math.min(255, ((num >> 8) & 0x00FF) + 30);
+          const b = Math.min(255, (num & 0x0000FF) + 80);
+          return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+        });
+        break;
+      case 'storm':
+        // Óceáni vihar - sötétebb, zavarosabb víz
+        colors = colors.map(c => darkenColor(c, 0.4));
+        colors = colors.map(c => desaturateColor(c, 0.3));
+        break;
       default:
         // Use original biome colors
         break;
@@ -1634,6 +1687,209 @@ export default function SzenyoMadar() {
             ctx.arc(pipe.x + w.pipeW/2, pipe.top - 10, 2, 0, Math.PI * 2);
             ctx.arc(pipe.x + w.pipeW/2, pipe.top + w.gap + 10, 2, 0, Math.PI * 2);
             ctx.fill();
+          }
+          break;
+          
+        case 'coral':
+          // Korallzátony akadályok - víz alatti világ
+          ctx.save();
+          
+          // Felső korall formáció
+          ctx.translate(pipe.x + w.pipeW/2, pipe.top - 20);
+          
+          // Korall alapszín - élénk színek
+          const coralColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
+          const primaryColor = coralColors[Math.floor(pipe.x * 0.01) % coralColors.length];
+          
+          ctx.fillStyle = primaryColor;
+          
+          // Főkorall struktúra
+          for (let i = 0; i < 5; i++) {
+            const branchHeight = 25 + Math.sin(time.current.frameCount * 0.03 + i + pipe.x * 0.01) * 8;
+            const branchWidth = 8 + Math.cos(time.current.frameCount * 0.02 + i * 1.5) * 3;
+            const x = (i - 2) * 12 + Math.sin(time.current.frameCount * 0.04 + i) * 4;
+            
+            // Korall ág
+            ctx.beginPath();
+            ctx.ellipse(x, -branchHeight/2, branchWidth/2, branchHeight/2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Korall részletek
+            ctx.fillStyle = primaryColor === '#FF6B6B' ? '#FF9999' : '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(x - 3, -branchHeight/2 - 5, 2, 0, Math.PI * 2);
+            ctx.arc(x + 3, -branchHeight/2 + 3, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = primaryColor;
+          }
+          
+          // Tengeri növények
+          ctx.fillStyle = '#228B22';
+          for (let i = 0; i < 3; i++) {
+            const waveHeight = 15 + Math.sin(time.current.frameCount * 0.05 + i * 2) * 5;
+            const x = (i - 1) * 15 + Math.sin(time.current.frameCount * 0.03 + i) * 3;
+            
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            for (let j = 0; j < waveHeight; j += 3) {
+              const wave = Math.sin(j * 0.3 + time.current.frameCount * 0.1 + i) * 4;
+              ctx.lineTo(x + wave, -j);
+            }
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+          
+          ctx.restore();
+          
+          // Alsó korall formáció
+          ctx.save();
+          ctx.translate(pipe.x + w.pipeW/2, pipe.top + w.gap + 20);
+          
+          const secondaryColor = coralColors[(Math.floor(pipe.x * 0.01) + 2) % coralColors.length];
+          ctx.fillStyle = secondaryColor;
+          
+          // Alsó korall más formával
+          for (let i = 0; i < 4; i++) {
+            const branchHeight = 20 + Math.cos(time.current.frameCount * 0.025 + i + pipe.x * 0.015) * 6;
+            const branchWidth = 10 + Math.sin(time.current.frameCount * 0.03 + i * 1.8) * 4;
+            const x = (i - 1.5) * 15 + Math.cos(time.current.frameCount * 0.035 + i * 0.7) * 5;
+            
+            // Fan korall
+            ctx.beginPath();
+            ctx.arc(x, branchHeight/2, branchWidth, -Math.PI * 0.7, -Math.PI * 0.3);
+            ctx.lineWidth = branchHeight * 0.8;
+            ctx.stroke();
+          }
+          
+          ctx.restore();
+          
+          // Buborékok a korallok körül
+          ctx.fillStyle = 'rgba(173, 216, 230, 0.7)';
+          for (let i = 0; i < 6; i++) {
+            const bubbleX = pipe.x + 10 + (i * 8) + Math.sin(time.current.frameCount * 0.1 + i) * 5;
+            const bubbleY = pipe.top - 30 + Math.sin(time.current.frameCount * 0.08 + i * 1.5) * 20;
+            const bubbleSize = 2 + Math.sin(time.current.frameCount * 0.12 + i * 2) * 1;
+            
+            ctx.globalAlpha = 0.6 + Math.sin(time.current.frameCount * 0.1 + i) * 0.3;
+            ctx.beginPath();
+            ctx.arc(bubbleX, bubbleY, bubbleSize, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+          }
+          break;
+          
+        case 'shipwreck':
+          // Hajóroncs akadályok - elsüllyedt hajó részei
+          
+          // Felső hajórész - kapitányi híd
+          ctx.save();
+          ctx.translate(pipe.x, pipe.top - 30);
+          
+          // Rozsdás barna szín
+          ctx.fillStyle = '#8B4513';
+          ctx.fillRect(0, 0, w.pipeW, 30);
+          
+          // Hajó részletek
+          ctx.fillStyle = '#654321';
+          ctx.fillRect(5, 5, w.pipeW - 10, 8); // Felső fedélzet
+          ctx.fillRect(8, 15, w.pipeW - 16, 10); // Alsó rész
+          
+          // Rozsdafoltok
+          ctx.fillStyle = '#CD853F';
+          for (let i = 0; i < 4; i++) {
+            const rustX = 3 + (i * w.pipeW / 4) + Math.sin(pipe.x * 0.01 + i) * 3;
+            const rustY = 8 + Math.cos(pipe.x * 0.015 + i * 1.5) * 8;
+            ctx.beginPath();
+            ctx.arc(rustX, rustY, 2 + Math.sin(i * 2) * 1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          
+          // Törött ablak
+          ctx.fillStyle = '#000080';
+          ctx.fillRect(w.pipeW/2 - 8, 8, 16, 6);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(w.pipeW/2 - 6, 10, 3, 2);
+          ctx.fillRect(w.pipeW/2 + 3, 10, 3, 2);
+          
+          ctx.restore();
+          
+          // Alsó hajórész - hajótest
+          ctx.save();
+          ctx.translate(pipe.x, pipe.top + w.gap);
+          
+          ctx.fillStyle = '#696969';
+          ctx.fillRect(0, 0, w.pipeW, 40);
+          
+          // Hajótest görbület
+          ctx.fillStyle = '#808080';
+          ctx.beginPath();
+          ctx.arc(w.pipeW/2, 40, w.pipeW/2 - 2, 0, Math.PI);
+          ctx.fill();
+          
+          // Hajó bordázat
+          ctx.strokeStyle = '#2F4F4F';
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 4; i++) {
+            const lineX = (i + 1) * w.pipeW / 5;
+            ctx.beginPath();
+            ctx.moveTo(lineX, 0);
+            ctx.lineTo(lineX, 35);
+            ctx.stroke();
+          }
+          
+          // Horgony maradványok
+          ctx.fillStyle = '#A0522D';
+          ctx.beginPath();
+          ctx.arc(w.pipeW - 8, 15, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(w.pipeW - 8, 25, 2, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.restore();
+          
+          // Tengeri növények a roncs körül
+          ctx.strokeStyle = '#006400';
+          ctx.lineWidth = 3;
+          for (let i = 0; i < 5; i++) {
+            const seaweedX = pipe.x + 5 + (i * 10) + Math.sin(time.current.frameCount * 0.04 + i) * 4;
+            const seaweedBase = pipe.top + w.gap + 40;
+            
+            ctx.beginPath();
+            ctx.moveTo(seaweedX, seaweedBase);
+            for (let j = 1; j <= 8; j++) {
+              const waveX = seaweedX + Math.sin(time.current.frameCount * 0.06 + i + j * 0.5) * (j * 2);
+              const waveY = seaweedBase - (j * 8);
+              ctx.lineTo(waveX, waveY);
+            }
+            ctx.stroke();
+          }
+          
+          // Halrajok a roncs körül
+          ctx.fillStyle = '#FFD700';
+          for (let i = 0; i < 8; i++) {
+            const fishX = pipe.x + w.pipeW + 20 + Math.sin(time.current.frameCount * 0.08 + i * 0.8) * 30;
+            const fishY = pipe.top + (w.gap / 2) + Math.cos(time.current.frameCount * 0.06 + i * 1.2) * 40;
+            const fishSize = 3 + Math.sin(i * 1.5) * 1;
+            
+            // Kis hal forma
+            ctx.save();
+            ctx.translate(fishX, fishY);
+            ctx.rotate(Math.sin(time.current.frameCount * 0.1 + i) * 0.3);
+            
+            ctx.beginPath();
+            ctx.ellipse(0, 0, fishSize, fishSize * 0.6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Hal farok
+            ctx.beginPath();
+            ctx.moveTo(-fishSize, 0);
+            ctx.lineTo(-fishSize * 1.5, -fishSize * 0.4);
+            ctx.lineTo(-fishSize * 1.5, fishSize * 0.4);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
           }
           break;
           
@@ -2580,6 +2836,8 @@ export default function SzenyoMadar() {
                   {weather.current.type === 'snow' && '❄️ Havazik'}
                   {weather.current.type === 'fog' && '🌫️ Ködös'}
                   {weather.current.type === 'aurora' && '🌌 Aurora'}
+                  {weather.current.type === 'current' && '🌊 Áramlatok'}
+                  {weather.current.type === 'storm' && '⛈️ Vihar'}
                 </div>
               )}
               
@@ -2588,6 +2846,7 @@ export default function SzenyoMadar() {
                 {currentBiome.current.id === 'forest' && '🌲 Varázserdő'}
                 {currentBiome.current.id === 'city' && '🏙️ Cyber Város'}
                 {currentBiome.current.id === 'space' && '🚀 Galaktikus Űr'}
+                {currentBiome.current.id === 'ocean' && '🌊 Óceán Mélység'}
                 {score >= 10 && (
                   <div className="text-yellow-400 text-xs">
                     Következő biome: {Math.floor((score + 10) / 10) * 10} pont
