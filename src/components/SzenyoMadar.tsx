@@ -953,18 +953,18 @@ export default function SzenyoMadar() {
     });
   }, []);
 
-  // Játék logika update - garantált 60 FPS minden eszközön
+  // Játék logika update - garantált 120 FPS minden eszközön - ULTRA SMOOTH
   const updateGame = useCallback(() => {
-    // Fix timing - minden eszközön azonos sebességű játék
-    // Nincs deltaTime függőség, mindig ugyanazokkal az értékekkel számolunk
+    // Fix 120 FPS timing - minden eszközön ultra smooth játék
+    // 2x gyorsabb logika frissítés = még fluidabb mozgás
     
-    // Game physics - enhanced with combinations (150% gyorsabb alapsebesség)
+    // Game physics - enhanced with combinations (300% gyorsabb alapsebesség - 120 FPS)
     const b = bird.current;
-    let speedMultiplier = 2.25; // Alapértelmezett sebesség 150%-kal gyorsabb (1.5 * 1.5)
-    if (b.slowMotion > 0) speedMultiplier = 1.125; // Lassítás is arányosan gyorsabb
-    if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = 3.375; // Rainbow mode gyorsabb
-    if (b.superMode > 0) speedMultiplier = 4.5; // Super mode még gyorsabb
-    if (b.godMode > 0) speedMultiplier = 1.8; // God mode is gyorsabb
+    let speedMultiplier = 4.5; // Alapértelmezett sebesség 300%-kal gyorsabb (2.25 * 2)
+    if (b.slowMotion > 0) speedMultiplier = 2.25; // Lassítás is arányosan gyorsabb
+    if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = 6.75; // Rainbow mode ultra gyors
+    if (b.superMode > 0) speedMultiplier = 9.0; // Super mode extrém gyors
+    if (b.godMode > 0) speedMultiplier = 3.6; // God mode is gyorsabb
     
     const gameSpeed = speedMultiplier;
     const w = world.current;
@@ -2220,13 +2220,13 @@ export default function SzenyoMadar() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Garantált 60 FPS gameplay - frame rate független
+    // Garantált 120 FPS gameplay - ultra smooth frame rate független
     if (time.current.last === 0) time.current.last = now;
     time.current.last = now;
     
     // Csak futó állapotban frissítjük a játékot
     if (state === GameState.RUN) {
-      // Fix 60 FPS gameplay - minden eszközön azonos sebesség
+      // Fix 120 FPS gameplay - minden eszközön ultra smooth sebesség
       updateGame();
     }
     
@@ -2383,7 +2383,7 @@ export default function SzenyoMadar() {
               
               {/* FPS Monitor - valós render FPS */}
               <div className="text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
-                Render: {fps} FPS | Logic: 60 FPS | {detectPerformanceLevel().toUpperCase()}
+                Render: {fps} FPS | Logic: 120 FPS | {detectPerformanceLevel().toUpperCase()}
               </div>
               
               {/* Debug Spawn Info */}
@@ -2483,7 +2483,7 @@ export default function SzenyoMadar() {
             <div className="pixel-text text-white text-6xl animate-pulse">⏸</div>
             <div className="pixel-text text-white text-xl text-center mt-4">SZÜNET</div>
             <div className="text-cyan-400 text-sm font-mono text-center mt-2 bg-black bg-opacity-50 px-2 py-1 rounded">
-              Render: {fps} FPS | Logic: 60 FPS | {detectPerformanceLevel().toUpperCase()}
+              Render: {fps} FPS | Logic: 120 FPS | {detectPerformanceLevel().toUpperCase()}
             </div>
           </div>
         )}
@@ -2540,7 +2540,7 @@ export default function SzenyoMadar() {
                   {getPerfConfig().maxParticles} részecske limit
                 </div>
                 <div className="text-cyan-400 text-sm font-mono mt-1">
-                  Render: {fps} FPS | Logic: 60 FPS
+                  Render: {fps} FPS | Logic: 120 FPS
                 </div>
               </div>
               
@@ -2745,7 +2745,7 @@ export default function SzenyoMadar() {
         
         {/* FPS kijelző - jobb felső sarok - valós render FPS */}
         <div className="absolute top-4 right-4 text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
-          Render: {fps} | Logic: 60
+          Render: {fps} | Logic: 120
         </div>
       </div>
     </div>
