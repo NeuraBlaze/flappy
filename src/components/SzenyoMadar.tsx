@@ -352,7 +352,7 @@ export default function SzenyoMadar() {
       id: 'space',
       name: 'Galaktikus Űr',
       backgroundColors: ['#0B0B1F', '#1A1A3E', '#2E2E5F'],
-      obstacleTypes: ['asteroid', 'satellite'],
+      obstacleTypes: ['pipe', 'asteroid'], // pipe = űrállomás csövek, asteroid = valódi aszteroidák
       weatherTypes: ['clear', 'aurora'],
       powerUpBonus: 1.5,
       musicTheme: 'cosmic',
@@ -1237,18 +1237,20 @@ export default function SzenyoMadar() {
           break;
           
         case 'asteroid':
-          // Űr aszteroida
-          ctx.fillStyle = '#8B7D6B';
-          ctx.save();
-          ctx.translate(pipe.x + w.pipeW/2, pipe.top/2);
-          ctx.rotate(time.current.frameCount * 0.01);
+          // Valódi aszteroida akadályok - nem cső formájú!
+          const asteroidSize = 35 + Math.sin(time.current.frameCount * 0.02 + pipe.x * 0.01) * 5;
           
-          // Irregular asteroid shape
+          // Felső aszteroida
+          ctx.save();
+          ctx.translate(pipe.x + w.pipeW/2, pipe.top - 25);
+          ctx.rotate(time.current.frameCount * 0.01 + pipe.x * 0.001);
+          
+          ctx.fillStyle = '#8B7D6B';
           ctx.beginPath();
-          const sides = 8;
-          for (let i = 0; i < sides; i++) {
-            const angle = (i / sides) * Math.PI * 2;
-            const radius = 20 + Math.sin(i * 1.5) * 8;
+          const sides1 = 12;
+          for (let i = 0; i < sides1; i++) {
+            const angle = (i / sides1) * Math.PI * 2;
+            const radius = asteroidSize + Math.sin(i * 1.7 + pipe.x * 0.01) * 8;
             const x = Math.cos(angle) * radius;
             const y = Math.sin(angle) * radius;
             if (i === 0) ctx.moveTo(x, y);
@@ -1257,25 +1259,35 @@ export default function SzenyoMadar() {
           ctx.closePath();
           ctx.fill();
           
-          // Craters
+          // Kraters
           ctx.fillStyle = '#696969';
           ctx.beginPath();
-          ctx.arc(-8, -5, 4, 0, Math.PI * 2);
-          ctx.arc(10, 8, 3, 0, Math.PI * 2);
+          ctx.arc(-12, -8, 6, 0, Math.PI * 2);
+          ctx.arc(15, 10, 4, 0, Math.PI * 2);
+          ctx.arc(-5, 12, 3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Bright spots (metal ore)
+          ctx.fillStyle = '#A0A0A0';
+          ctx.beginPath();
+          ctx.arc(8, -15, 2, 0, Math.PI * 2);
+          ctx.arc(-18, 3, 2, 0, Math.PI * 2);
           ctx.fill();
           
           ctx.restore();
           
-          // Lower asteroid
+          // Alsó aszteroida - másik méret és forma
           ctx.save();
-          ctx.translate(pipe.x + w.pipeW/2, pipe.top + w.gap + (w.h - w.groundH - pipe.top - w.gap)/2);
-          ctx.rotate(time.current.frameCount * -0.008);
+          ctx.translate(pipe.x + w.pipeW/2, pipe.top + w.gap + 25);
+          ctx.rotate(time.current.frameCount * -0.008 + pipe.x * 0.002);
           
-          ctx.fillStyle = '#8B7D6B';
+          const lowerAsteroidSize = 32 + Math.cos(time.current.frameCount * 0.015 + pipe.x * 0.01) * 4;
+          ctx.fillStyle = '#7A6F5D';
           ctx.beginPath();
-          for (let i = 0; i < sides; i++) {
-            const angle = (i / sides) * Math.PI * 2;
-            const radius = 18 + Math.sin(i * 2) * 6;
+          const sides2 = 10;
+          for (let i = 0; i < sides2; i++) {
+            const angle = (i / sides2) * Math.PI * 2;
+            const radius = lowerAsteroidSize + Math.sin(i * 2.1 + pipe.x * 0.015) * 6;
             const x = Math.cos(angle) * radius;
             const y = Math.sin(angle) * radius;
             if (i === 0) ctx.moveTo(x, y);
@@ -1283,7 +1295,81 @@ export default function SzenyoMadar() {
           }
           ctx.closePath();
           ctx.fill();
+          
+          // Kraters
+          ctx.fillStyle = '#5A5A5A';
+          ctx.beginPath();
+          ctx.arc(-10, -6, 5, 0, Math.PI * 2);
+          ctx.arc(12, 8, 3, 0, Math.PI * 2);
+          ctx.arc(3, -12, 4, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Ice spots (frozen areas)
+          ctx.fillStyle = '#B0E0E6';
+          ctx.beginPath();
+          ctx.arc(-15, 5, 1.5, 0, Math.PI * 2);
+          ctx.arc(8, 12, 1, 0, Math.PI * 2);
+          ctx.fill();
+          
           ctx.restore();
+          break;
+          
+        case 'pipe':
+          // Űrállomás alagút/átjáró (csak űr biome esetén)
+          if (pipe.biome === 'space') {
+            // Űrállomás alagút metalikus megjelenéssel
+            const gradient = ctx.createLinearGradient(pipe.x, 0, pipe.x + w.pipeW, 0);
+            gradient.addColorStop(0, '#2F4F4F');
+            gradient.addColorStop(0.5, '#708090');
+            gradient.addColorStop(1, '#2F4F4F');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+            
+            // Űrállomás panelok és fények
+            ctx.fillStyle = '#1E90FF';
+            for (let y = 10; y < pipe.top - 10; y += 25) {
+              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
+              // Glow effect
+              ctx.shadowColor = '#1E90FF';
+              ctx.shadowBlur = 8;
+              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
+              ctx.shadowBlur = 0;
+            }
+            for (let y = pipe.top + w.gap + 10; y < w.h - w.groundH - 10; y += 25) {
+              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
+              ctx.shadowColor = '#1E90FF';
+              ctx.shadowBlur = 8;
+              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 3);
+              ctx.shadowBlur = 0;
+            }
+            
+            // Metalikus szegélyek
+            ctx.fillStyle = '#B0C4DE';
+            ctx.fillRect(pipe.x - 2, pipe.top - 8, w.pipeW + 4, 8);
+            ctx.fillRect(pipe.x - 2, pipe.top + w.gap, w.pipeW + 4, 8);
+            
+            // Vészfények
+            const blinkTime = Math.floor(time.current.frameCount / 30) % 2;
+            if (blinkTime === 0) {
+              ctx.fillStyle = '#FF4500';
+              ctx.beginPath();
+              ctx.arc(pipe.x + w.pipeW/2, pipe.top - 4, 3, 0, Math.PI * 2);
+              ctx.arc(pipe.x + w.pipeW/2, pipe.top + w.gap + 4, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else {
+            // Klasszikus zöld cső más biome-okhoz
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+            
+            // Cső sapka
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
+            ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
+          }
           break;
           
         case 'satellite':
@@ -1313,15 +1399,29 @@ export default function SzenyoMadar() {
           }
           break;
           
-        default: // Classic pipe
-          ctx.fillStyle = '#228B22';
-          ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
-          ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-          
-          // Cső sapka
-          ctx.fillStyle = '#32CD32';
-          ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
-          ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
+        default: // Classic pipe vagy ismeretlen típus
+          if (pipe.biome === 'space') {
+            // Űr biome esetén ismeretlen akadály típus alapértelmezett megjelenése
+            ctx.fillStyle = '#4B0082';
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+            
+            // Energia aura
+            ctx.strokeStyle = '#9400D3';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(pipe.x - 1, 0, w.pipeW + 2, pipe.top);
+            ctx.strokeRect(pipe.x - 1, pipe.top + w.gap, w.pipeW + 2, w.h - w.groundH - pipe.top - w.gap);
+          } else {
+            // Klasszikus zöld cső más biome-okhoz
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+            
+            // Cső sapka
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
+            ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
+          }
       }
       
       // Debug hitbox
