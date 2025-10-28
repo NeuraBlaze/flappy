@@ -281,6 +281,20 @@ export default function SzenyoMadar() {
     return (saved as 'left' | 'right') || 'left';
   });
 
+  // Error tracking and crash reporting
+  const [gameErrors, setGameErrors] = useState<string[]>([]);
+  const [lastError, setLastError] = useState<string>('');
+  const errorLogRef = useRef<Array<{
+    timestamp: string;
+    error: string;
+    birdSkin: string;
+    gameState: string;
+    score: number;
+    biome: string;
+    abilities: any;
+    stackTrace?: string;
+  }>>([]);
+
   // Bird skins definition
   const birdSkins = useRef<BirdSkin[]>([
     {
@@ -584,6 +598,57 @@ export default function SzenyoMadar() {
     localStorage.setItem("szenyo_madar_button_position", position);
   }, []);
 
+  // Error logging and crash reporting system
+  const logError = useCallback((error: string, additionalInfo?: any) => {
+    const timestamp = new Date().toISOString();
+    const currentSkin = getCurrentBirdSkin();
+    
+    const errorEntry = {
+      timestamp,
+      error,
+      birdSkin: currentSkin.id,
+      gameState: state.toString(),
+      score,
+      biome: currentBiome.current.id,
+      abilities: currentSkin.abilities,
+      additionalInfo,
+      stackTrace: new Error().stack
+    };
+    
+    errorLogRef.current.push(errorEntry);
+    setGameErrors(prev => [...prev, error]);
+    setLastError(error);
+    
+    // Save to localStorage for persistence
+    localStorage.setItem("szenyo_madar_error_log", JSON.stringify(errorLogRef.current.slice(-10))); // Keep last 10 errors
+    
+    console.error('🚨 Flappy Bird Crash Report:', errorEntry);
+    
+    // Auto-upload to GitHub (simulate crash report)
+    setTimeout(() => {
+      console.log('📤 Crash report would be auto-uploaded:', {
+        gameVersion: '1.0.0',
+        userAgent: navigator.userAgent,
+        timestamp,
+        errorDetails: errorEntry
+      });
+    }, 1000);
+  }, [getCurrentBirdSkin, state, score]);
+
+  // Safe wrapper for dangerous operations
+  const safeExecute = useCallback((operation: () => void, operationName: string) => {
+    try {
+      operation();
+    } catch (error) {
+      logError(`${operationName} failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        operationName,
+        bird: bird.current,
+        pipes: pipes.current.length,
+        powerUps: powerUps.current.length
+      });
+    }
+  }, [logError]);
+
   // Helper: Handle console commands
   const handleConsoleCommand = useCallback((command: string) => {
     const cmd = command.toLowerCase().trim();
@@ -657,8 +722,31 @@ export default function SzenyoMadar() {
       setShowConsole(false);
       setConsoleInput("");
     }
+    else if (cmd === "errorlog") {
+      const logs = errorLogRef.current;
+      if (logs.length === 0) {
+        alert("✅ Nincsenek hibák a logban!");
+      } else {
+        const logSummary = logs.slice(-5).map((log, i) => 
+          `${i + 1}. ${log.timestamp.split('T')[1].slice(0,8)} - ${log.birdSkin} - ${log.error}`
+        ).join('\n');
+        alert(`🚨 Utolsó 5 hiba:\n\n${logSummary}\n\nRészletek a konzolban (F12).`);
+        console.table(logs);
+      }
+      setShowConsole(false);
+      setConsoleInput("");
+    }
+    else if (cmd === "clearerrors") {
+      errorLogRef.current = [];
+      setGameErrors([]);
+      setLastError('');
+      localStorage.removeItem("szenyo_madar_error_log");
+      alert("🧹 Error log törölve!");
+      setShowConsole(false);
+      setConsoleInput("");
+    }
     else {
-      alert("❌ Ismeretlen parancs. Próbáld meg: szeretlekmario, dracarys, area51, gamer, unicorn, thunderstorm, superhero");
+      alert("❌ Ismeretlen parancs. Próbáld meg: szeretlekmario, dracarys, area51, gamer, unicorn, thunderstorm, superhero, errorlog, clearerrors");
     }
   }, [coins]);
 
@@ -723,6 +811,23 @@ export default function SzenyoMadar() {
       currentBiome.current = biomes.current[startingBiome];
     }
   }, [startingBiome]);
+
+  // Load previous error logs on component mount
+  useEffect(() => {
+    try {
+      const savedErrors = localStorage.getItem("szenyo_madar_error_log");
+      if (savedErrors) {
+        const parsed = JSON.parse(savedErrors);
+        errorLogRef.current = parsed;
+        if (parsed.length > 0) {
+          setLastError(`${parsed.length} korábbi hiba betöltve`);
+          setTimeout(() => setLastError(''), 3000);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load error log:', error);
+    }
+  }, []);
 
   // Sprite animációk definiálása (pixel koordinátákban)
   const birdSprites = useRef({
@@ -1325,24 +1430,25 @@ export default function SzenyoMadar() {
 
   // Játék logika update - stabil 60 FPS minden eszközön
   const updateGame = useCallback(() => {
-    // Optimális 60 FPS timing - kényelmes és stabil játékélmény
-    // Kiegyensúlyozott logika frissítés = smooth mozgás
-    
-    // Game physics - enhanced with combinations (módosítható sebességek)
-    const b = bird.current;
-    let speedMultiplier = speedSettings.normal; // Alapértelmezett sebesség - beállítható
-    if (b.slowMotion > 0) speedMultiplier = speedSettings.slowMotion; // Slow motion - beállítható
-    if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = speedSettings.rainbow; // Rainbow mode - beállítható
-    if (b.superMode > 0) speedMultiplier = speedSettings.super; // Super mode - beállítható
-    if (b.godMode > 0) speedMultiplier = speedSettings.godMode; // God mode - beállítható
-    
-    const gameSpeed = speedMultiplier;
-    const w = world.current;
-    
-    time.current.frameCount++;
-    
-    // Valós FPS számítás - mutatja a tényleges render sebességet
-    fpsCounter.current.frames++;
+    try {
+      // Optimális 60 FPS timing - kényelmes és stabil játékélmény
+      // Kiegyensúlyozott logika frissítés = smooth mozgás
+      
+      // Game physics - enhanced with combinations (módosítható sebességek)
+      const b = bird.current;
+      let speedMultiplier = speedSettings.normal; // Alapértelmezett sebesség - beállítható
+      if (b.slowMotion > 0) speedMultiplier = speedSettings.slowMotion; // Slow motion - beállítható
+      if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = speedSettings.rainbow; // Rainbow mode - beállítható
+      if (b.superMode > 0) speedMultiplier = speedSettings.super; // Super mode - beállítható
+      if (b.godMode > 0) speedMultiplier = speedSettings.godMode; // God mode - beállítható
+      
+      const gameSpeed = speedMultiplier;
+      const w = world.current;
+      
+      time.current.frameCount++;
+      
+      // Valós FPS számítás - mutatja a tényleges render sebességet
+      fpsCounter.current.frames++;
     const currentTime = performance.now();
     if (currentTime - fpsCounter.current.lastTime >= 1000) {
       setFps(fpsCounter.current.frames);
@@ -1774,7 +1880,28 @@ export default function SzenyoMadar() {
         setState(GameState.GAMEOVER);
       }
     }
-  }, [score, best, coins, checkCollisions, checkPowerUpCollisions, playSound, createParticles, spawnPowerUp, spawnCoin, spawnBackgroundObject, spawnWeatherParticles, unlockAchievement, checkPowerUpCombination]);
+    } catch (error) {
+      logError(`UpdateGame crashed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+        birdSkin: getCurrentBirdSkin().id,
+        birdState: bird.current,
+        pipesCount: pipes.current.length,
+        powerUpsCount: powerUps.current.length,
+        score,
+        gameState: state
+      });
+      
+      // Try to recover gracefully
+      try {
+        if (state === GameState.RUN) {
+          setState(GameState.PAUSE);
+          alert(`🚨 Játék hiba történt!\nMadár: ${getCurrentBirdSkin().name}\nHiba: ${error instanceof Error ? error.message : 'Ismeretlen hiba'}\n\nA játék szüneteltetve. Nyomj R-t az újraindításhoz.`);
+        }
+      } catch (recoveryError) {
+        logError('Recovery failed', recoveryError);
+        window.location.reload(); // Last resort
+      }
+    }
+  }, [score, best, coins, checkCollisions, checkPowerUpCollisions, playSound, createParticles, spawnPowerUp, spawnCoin, spawnBackgroundObject, spawnWeatherParticles, unlockAchievement, checkPowerUpCombination, logError, getCurrentBirdSkin, state]);
 
   // Renderelés
   const render = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -3815,6 +3942,19 @@ export default function SzenyoMadar() {
                 <div className="text-white text-xs font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
                   PowerUps: {powerUps.current.length}/{getPerfConfig().maxPowerUps} | 
                   Coins: {gameCoins.current.length}/{getPerfConfig().maxCoins}
+                </div>
+              )}
+              
+              {/* Error Display */}
+              {lastError && (
+                <div className="text-red-400 text-xs font-mono bg-red-900 bg-opacity-75 px-2 py-1 rounded max-w-md">
+                  🚨 {lastError} | Bird: {getCurrentBirdSkin().name}
+                  <button 
+                    className="ml-2 text-white hover:text-red-300"
+                    onClick={() => setLastError('')}
+                  >
+                    ❌
+                  </button>
                 </div>
               )}
               
