@@ -188,6 +188,9 @@ interface BirdSkin {
     magnetBonus?: number; // 1.0 = normal
     shieldDuration?: number; // 1.0 = normal
     coinValue?: number; // 1.0 = normal
+    extraLives?: number; // Extra életek száma
+    canShoot?: boolean; // Tud-e lőni
+    autoShield?: number; // Automatikus pajzs újratöltődés (sec)
   };
   description: string;
 }
@@ -300,6 +303,26 @@ export default function SzenyoMadar() {
       unlockRequirement: { type: "coins", value: 250 },
       abilities: { jumpPower: 1.1, magnetBonus: 1.3, coinValue: 1.1 },
       description: "Színes és sokoldalú képességek"
+    },
+    {
+      id: "robot",
+      name: "Robot Madár",
+      emoji: "🤖",
+      bodyColor: "#C0C0C0",
+      wingColor: "#696969",
+      unlockRequirement: { type: "score", value: 100 },
+      abilities: { extraLives: 3, autoShield: 15, gravity: 0.95 },
+      description: "3 extra életet + auto-pajzs"
+    },
+    {
+      id: "rambo",
+      name: "Rambo Madár",
+      emoji: "💪",
+      bodyColor: "#8B4513",
+      wingColor: "#556B2F",
+      unlockRequirement: { type: "achievement", value: "high_flyer" },
+      abilities: { canShoot: true, jumpPower: 1.15, shieldDuration: 1.3 },
+      description: "Tud lőni az akadályokra!"
     }
   ]);
 
@@ -339,6 +362,13 @@ export default function SzenyoMadar() {
     godMode: 0, // rainbow + shield = ultimate power
     lastPowerUp: '' as string, // track last power-up for combinations
     comboWindow: 0, // time window for combinations
+    // Combat and special abilities
+    lives: 1, // alap 1 élet
+    maxLives: 1, // maximum lives
+    autoShieldTimer: 0, // auto shield countdown
+    bullets: [] as {x: number, y: number, vx: number, vy: number, life: number}[], // bullets for rambo
+    canShoot: false, // shooting ability
+    shootCooldown: 0, // shooting cooldown
   });
 
   // Valós FPS monitoring - mutatja a tényleges renderelési sebességet
@@ -736,6 +766,11 @@ export default function SzenyoMadar() {
   // Helper: világ reset
   const resetGame = useCallback(() => {
     setScore(0);
+    
+    // Get current bird skin abilities
+    const currentSkin = birdSkins.current.find(skin => skin.id === selectedBirdSkin);
+    const extraLives = currentSkin?.abilities.extraLives || 0;
+    
     bird.current = { 
       x: 80, 
       y: 240, 
@@ -756,7 +791,13 @@ export default function SzenyoMadar() {
       megaMode: 0,
       godMode: 0,
       lastPowerUp: '',
-      comboWindow: 0
+      comboWindow: 0,
+      lives: 1 + extraLives,
+      maxLives: 1 + extraLives,
+      autoShieldTimer: currentSkin?.abilities.autoShield ? (currentSkin.abilities.autoShield * 60) : 0,
+      bullets: [],
+      canShoot: currentSkin?.abilities.canShoot || false,
+      shootCooldown: 0
     };
     pipes.current = [];
     particles.current = [];
@@ -775,7 +816,7 @@ export default function SzenyoMadar() {
         speed: 0.3 + Math.random() * 0.2
       });
     }
-  }, []);
+  }, [selectedBirdSkin]);
 
   // Ugrás (input) - debounce-al a smooth mobil élményért
   const flap = useCallback(() => {
@@ -810,7 +851,30 @@ export default function SzenyoMadar() {
     
     // Trail részecskék
     createParticles(bird.current.x - 5, bird.current.y, 3, '#FFD700', 'trail');
-  }, [state, resetGame, initAudio, playSound, createParticles]);
+  }, [state, resetGame, initAudio, playSound, createParticles, getCurrentBirdSkin]);
+
+  // Lövés funkció (Rambo Bird)
+  const shoot = useCallback(() => {
+    if (state !== GameState.RUN) return;
+    
+    const b = bird.current;
+    const currentSkin = getCurrentBirdSkin();
+    
+    if (currentSkin.abilities.canShoot && b.shootCooldown === 0) {
+      // Create bullet
+      b.bullets.push({
+        x: b.x + 15,
+        y: b.y,
+        vx: 4, // bullet speed
+        vy: 0,
+        life: 180 // 3 seconds
+      });
+      
+      b.shootCooldown = 30; // 0.5 second cooldown
+      playSound(600, 0.1, 'hit');
+      createParticles(b.x + 15, b.y, 3, '#FFFF00', 'sparkle');
+    }
+  }, [state, playSound, createParticles, getCurrentBirdSkin]);
 
   // Szünet toggle
   const togglePause = useCallback(() => {
@@ -1048,6 +1112,46 @@ export default function SzenyoMadar() {
     b.y += b.vy * gameSpeed;
     b.angle = Math.max(-0.5, Math.min(0.8, b.vy * 0.1));
     
+    // Robot Bird auto-shield mechanic
+    if (currentSkin.abilities.autoShield && b.autoShieldTimer > 0) {
+      b.autoShieldTimer--;
+      if (b.autoShieldTimer === 0 && b.shield === 0) {
+        b.shield = 180; // 3 seconds of shield
+        createParticles(b.x, b.y, 6, '#00FFFF', 'sparkle');
+        playSound(400, 0.2, 'powerup');
+        b.autoShieldTimer = (currentSkin.abilities.autoShield || 15) * 60; // Reset timer
+      }
+    }
+    
+    // Shooting cooldown for Rambo Bird
+    if (b.shootCooldown > 0) b.shootCooldown--;
+    
+    // Update bullets
+    b.bullets.forEach(bullet => {
+      bullet.x += bullet.vx * gameSpeed;
+      bullet.y += bullet.vy * gameSpeed;
+      bullet.life--;
+    });
+    // Remove expired bullets
+    b.bullets = b.bullets.filter(bullet => bullet.life > 0 && bullet.x < w.w + 50);
+    
+    // Bullet collision with pipes
+    b.bullets.forEach(bullet => {
+      pipes.current.forEach((pipe, pipeIndex) => {
+        if (bullet.x + 3 > pipe.x && bullet.x - 3 < pipe.x + w.pipeW) {
+          if (bullet.y - 3 < pipe.top || bullet.y + 3 > pipe.top + w.gap) {
+            // Hit pipe - remove it and bullet
+            pipes.current.splice(pipeIndex, 1);
+            bullet.life = 0;
+            createParticles(bullet.x, bullet.y, 8, '#FF8800', 'explosion');
+            playSound(200, 0.2, 'hit');
+            // Bonus points for destroying obstacles
+            setScore(prev => prev + 2);
+          }
+        }
+      });
+    });
+    
     // Madár animáció frissítés (fix 60 FPS)
     b.animFrame += gameSpeed;
     if (b.animFrame >= 60 / birdSprites.current.flying.frameRate) {
@@ -1254,20 +1358,31 @@ export default function SzenyoMadar() {
     // Coins localStorage mentés
     localStorage.setItem("szenyo_madar_coins", coins.toString());
     
-    // Ütközés ellenőrzés (enhanced with combinations)
+    // Ütközés ellenőrzés (enhanced with combinations and lives system)
     const isInvulnerable = b.shield > 0 || b.rainbow > 0 || b.superMode > 0 || b.godMode > 0;
     if (!isInvulnerable && checkCollisions()) {
       playSound(150, 0.5, 'hit');
       createParticles(b.x, b.y, 12, '#FF4444', 'explosion');
       time.current.cameraShake = 20;
       
-      // Best score mentés
-      if (score > best) {
-        setBest(score);
-        localStorage.setItem("szenyo_madar_best", score.toString());
+      // Lives system for Robot Bird
+      if (b.lives > 1) {
+        b.lives--;
+        // Reset position after losing a life
+        b.y = 240;
+        b.vy = 0;
+        // Give temporary invulnerability
+        b.shield = 120; // 2 seconds of shield
+        createParticles(b.x, b.y, 8, '#FFD700', 'sparkle');
+        playSound(300, 0.3, 'powerup');
+      } else {
+        // Best score mentés
+        if (score > best) {
+          setBest(score);
+          localStorage.setItem("szenyo_madar_best", score.toString());
+        }
+        setState(GameState.GAMEOVER);
       }
-      
-      setState(GameState.GAMEOVER);
     }
   }, [score, best, coins, checkCollisions, checkPowerUpCollisions, playSound, createParticles, spawnPowerUp, spawnCoin, spawnBackgroundObject, spawnWeatherParticles, unlockAchievement, checkPowerUpCombination]);
 
@@ -1532,63 +1647,162 @@ export default function SzenyoMadar() {
           
           ctx.restore();
           
-          // Törmelékek az aszteroidák hitbox területén - vizuális kitöltés
-          // Felső aszteroida hitbox területének kitöltése
-          ctx.fillStyle = '#5A5A5A';
-          for (let i = 0; i < 8; i++) {
-            const debrisX = pipe.x + (Math.sin(time.current.frameCount * 0.01 + i) * 15) + w.pipeW/2;
-            const debrisY = pipe.top - 60 + (Math.cos(time.current.frameCount * 0.008 + i * 1.5) * 20);
-            const debrisSize = 2 + Math.sin(i * 2 + time.current.frameCount * 0.01) * 1;
-            
-            ctx.save();
-            ctx.translate(debrisX, debrisY);
-            ctx.rotate(time.current.frameCount * 0.02 + i);
-            ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize, debrisSize);
-            ctx.restore();
-          }
-          
-          // Alsó aszteroida hitbox területének kitöltése
-          ctx.fillStyle = '#4A4A4A';
-          for (let i = 0; i < 6; i++) {
-            const debrisX = pipe.x + (Math.sin(time.current.frameCount * 0.012 + i + 3) * 18) + w.pipeW/2;
-            const debrisY = pipe.top + w.gap + 60 + (Math.cos(time.current.frameCount * 0.009 + i * 1.8) * 25);
-            const debrisSize = 1.5 + Math.cos(i * 1.5 + time.current.frameCount * 0.012) * 0.8;
-            
-            ctx.save();
-            ctx.translate(debrisX, debrisY);
-            ctx.rotate(time.current.frameCount * -0.015 + i * 1.2);
-            
-            // Különböző alakú törmelékek
-            if (i % 3 === 0) {
-              // Háromszög törmelék
-              ctx.beginPath();
-              ctx.moveTo(0, -debrisSize);
-              ctx.lineTo(-debrisSize * 0.8, debrisSize * 0.5);
-              ctx.lineTo(debrisSize * 0.8, debrisSize * 0.5);
-              ctx.closePath();
-              ctx.fill();
-            } else if (i % 3 === 1) {
-              // Kör törmelék
-              ctx.beginPath();
-              ctx.arc(0, 0, debrisSize * 0.6, 0, Math.PI * 2);
-              ctx.fill();
-            } else {
-              // Négyzet törmelék
-              ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize, debrisSize);
+          // TELJES HITBOX KITÖLTÉSE TÖRMELÉKEKKEL - Egyértelmű repülési terület
+          // Felső aszteroida teljes hitbox területe - 0-től pipe.top-ig
+          for (let y = 0; y < pipe.top; y += 12) {
+            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 15) {
+              // Különböző méretű és színű törmelékek
+              const seed = (x * 0.1 + y * 0.2 + pipe.x * 0.01);
+              const debrisSize = 4 + Math.sin(seed) * 6 + Math.cos(seed * 1.5) * 3; // 1-13 pixel
+              const debrisX = x + Math.sin(time.current.frameCount * 0.02 + seed) * 8;
+              const debrisY = y + Math.cos(time.current.frameCount * 0.015 + seed * 1.3) * 6;
+              
+              // Színvariációk
+              const colorVariant = Math.floor((seed * 10) % 4);
+              let debrisColor: string;
+              switch(colorVariant) {
+                case 0: debrisColor = '#666666'; break; // Sötét szürke
+                case 1: debrisColor = '#808080'; break; // Közép szürke  
+                case 2: debrisColor = '#999999'; break; // Világos szürke
+                default: debrisColor = '#4A4A4A'; break; // Nagyon sötét
+              }
+              ctx.fillStyle = debrisColor;
+              
+              ctx.save();
+              ctx.translate(debrisX, debrisY);
+              ctx.rotate(time.current.frameCount * 0.01 + seed);
+              
+              // Különböző alakzatok
+              const shape = Math.floor((seed * 7) % 5);
+              switch(shape) {
+                case 0: // Négyzet
+                  ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize, debrisSize);
+                  break;
+                case 1: // Kör
+                  ctx.beginPath();
+                  ctx.arc(0, 0, debrisSize/2, 0, Math.PI * 2);
+                  ctx.fill();
+                  break;
+                case 2: // Háromszög
+                  ctx.beginPath();
+                  ctx.moveTo(0, -debrisSize/2);
+                  ctx.lineTo(-debrisSize/2, debrisSize/2);
+                  ctx.lineTo(debrisSize/2, debrisSize/2);
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
+                case 3: // Rombusz
+                  ctx.beginPath();
+                  ctx.moveTo(0, -debrisSize/2);
+                  ctx.lineTo(debrisSize/2, 0);
+                  ctx.lineTo(0, debrisSize/2);
+                  ctx.lineTo(-debrisSize/2, 0);
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
+                case 4: // Téglatest
+                  ctx.fillRect(-debrisSize/3, -debrisSize/2, debrisSize * 0.66, debrisSize);
+                  break;
+              }
+              ctx.restore();
             }
-            ctx.restore();
           }
           
-          // Extra kis porszemcsék az egész hitbox területen
-          ctx.fillStyle = '#808080';
-          for (let i = 0; i < 12; i++) {
-            const dustX = pipe.x + (Math.random() * w.pipeW);
-            const dustY = pipe.top - 80 + (Math.random() * (w.gap + 160));
-            const dustSize = 0.5 + Math.random() * 0.5;
+          // Alsó aszteroida teljes hitbox területe - pipe.top + gap-től a földig
+          for (let y = pipe.top + w.gap; y < w.h - w.groundH; y += 12) {
+            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 15) {
+              // Különböző méretű és színű törmelékek
+              const seed = (x * 0.15 + y * 0.25 + pipe.x * 0.012);
+              const debrisSize = 3 + Math.sin(seed * 1.2) * 7 + Math.cos(seed * 0.8) * 4; // 1-14 pixel
+              const debrisX = x + Math.sin(time.current.frameCount * 0.018 + seed) * 7;
+              const debrisY = y + Math.cos(time.current.frameCount * 0.012 + seed * 1.1) * 5;
+              
+              // Másik színpaletta az alsó részhez
+              const colorVariant = Math.floor((seed * 12) % 4);
+              let debrisColor: string;
+              switch(colorVariant) {
+                case 0: debrisColor = '#555555'; break; // Sötétebb szürke
+                case 1: debrisColor = '#777777'; break; // Közép
+                case 2: debrisColor = '#8A8A8A'; break; // Világosabb
+                default: debrisColor = '#3C3C3C'; break; // Legdöntebb
+              }
+              ctx.fillStyle = debrisColor;
+              
+              ctx.save();
+              ctx.translate(debrisX, debrisY);
+              ctx.rotate(time.current.frameCount * -0.008 + seed * 1.3);
+              
+              // Más alakzatok az alsó részben
+              const shape = Math.floor((seed * 9) % 6);
+              switch(shape) {
+                case 0: // Hosszúkás téglalap
+                  ctx.fillRect(-debrisSize/4, -debrisSize/2, debrisSize/2, debrisSize);
+                  break;
+                case 1: // Ellipszis
+                  ctx.beginPath();
+                  ctx.ellipse(0, 0, debrisSize/2, debrisSize/3, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                  break;
+                case 2: // Pentagram
+                  ctx.beginPath();
+                  for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2) / 5;
+                    const radius = i % 2 === 0 ? debrisSize/2 : debrisSize/4;
+                    const px = Math.cos(angle) * radius;
+                    const py = Math.sin(angle) * radius;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                  }
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
+                case 3: // Hexagon
+                  ctx.beginPath();
+                  for (let i = 0; i < 6; i++) {
+                    const angle = (i * Math.PI * 2) / 6;
+                    const px = Math.cos(angle) * debrisSize/2;
+                    const py = Math.sin(angle) * debrisSize/2;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                  }
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
+                case 4: // L-alakzat
+                  ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize/3, debrisSize);
+                  ctx.fillRect(-debrisSize/2, debrisSize/3, debrisSize, debrisSize/3);
+                  break;
+                case 5: // Plus alakzat
+                  ctx.fillRect(-debrisSize/6, -debrisSize/2, debrisSize/3, debrisSize);
+                  ctx.fillRect(-debrisSize/2, -debrisSize/6, debrisSize, debrisSize/3);
+                  break;
+              }
+              ctx.restore();
+            }
+          }
+          
+          // Extra sűrű kis részecskék a sarkokhoz és szélehez
+          for (let i = 0; i < 40; i++) {
+            // Felső rész szélei
+            const edgeX = pipe.x + (i % 2 === 0 ? 0 : w.pipeW) + Math.sin(time.current.frameCount * 0.05 + i) * 3;
+            const edgeY = Math.random() * pipe.top;
+            const particleSize = 1 + Math.random() * 2;
             
-            ctx.globalAlpha = 0.3 + Math.sin(time.current.frameCount * 0.05 + i) * 0.2;
+            ctx.fillStyle = '#333333';
+            ctx.globalAlpha = 0.7;
             ctx.beginPath();
-            ctx.arc(dustX, dustY, dustSize, 0, Math.PI * 2);
+            ctx.arc(edgeX, edgeY, particleSize, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+            
+            // Alsó rész szélei
+            const lowerEdgeX = pipe.x + (i % 2 === 0 ? 0 : w.pipeW) + Math.cos(time.current.frameCount * 0.04 + i * 1.5) * 3;
+            const lowerEdgeY = pipe.top + w.gap + Math.random() * (w.h - w.groundH - pipe.top - w.gap);
+            
+            ctx.fillStyle = '#2A2A2A';
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.arc(lowerEdgeX, lowerEdgeY, particleSize, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1.0;
           }
@@ -1776,6 +1990,163 @@ export default function SzenyoMadar() {
             ctx.fill();
             ctx.globalAlpha = 1.0;
           }
+          
+          // TELJES HITBOX KITÖLTÉSE - Korallzátony területek
+          // Felső korall hitbox - 0-től pipe.top-ig
+          for (let y = 0; y < pipe.top; y += 14) {
+            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 16) {
+              const seed = (x * 0.08 + y * 0.12 + pipe.x * 0.005);
+              const coralSize = 3 + Math.sin(seed * 1.5) * 4 + Math.cos(seed * 0.9) * 3; // 0-10 pixel
+              const coralX = x + Math.sin(time.current.frameCount * 0.03 + seed) * 6;
+              const coralY = y + Math.cos(time.current.frameCount * 0.025 + seed * 1.2) * 5;
+              
+              // Korall színek
+              const colorVariant = Math.floor((seed * 8) % 5);
+              let coralColor: string;
+              switch(colorVariant) {
+                case 0: coralColor = '#FF6B6B'; break; // Piros korall
+                case 1: coralColor = '#4ECDC4'; break; // Türkiz korall
+                case 2: coralColor = '#45B7D1'; break; // Kék korall
+                case 3: coralColor = '#FFA07A'; break; // Lazac korall
+                default: coralColor = '#98D8C8'; break; // Zöld korall
+              }
+              ctx.fillStyle = coralColor;
+              
+              ctx.save();
+              ctx.translate(coralX, coralY);
+              ctx.rotate(time.current.frameCount * 0.02 + seed);
+              
+              // Korall alakzatok
+              const shape = Math.floor((seed * 6) % 4);
+              switch(shape) {
+                case 0: // Korall ág
+                  ctx.beginPath();
+                  ctx.ellipse(0, 0, coralSize/3, coralSize/2, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.ellipse(-coralSize/4, -coralSize/3, coralSize/4, coralSize/3, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                  break;
+                case 1: // Buborék korall
+                  for (let j = 0; j < 3; j++) {
+                    ctx.beginPath();
+                    ctx.arc(j * coralSize/4 - coralSize/4, 0, coralSize/4, 0, Math.PI * 2);
+                    ctx.fill();
+                  }
+                  break;
+                case 2: // Fan korall
+                  ctx.beginPath();
+                  ctx.arc(0, 0, coralSize/2, -Math.PI * 0.8, -Math.PI * 0.2);
+                  ctx.lineWidth = coralSize/3;
+                  ctx.stroke();
+                  break;
+                case 3: // Csoportos korall
+                  ctx.fillRect(-coralSize/3, -coralSize/2, coralSize/6, coralSize);
+                  ctx.fillRect(0, -coralSize/3, coralSize/6, coralSize * 0.8);
+                  ctx.fillRect(coralSize/6, -coralSize/2, coralSize/6, coralSize);
+                  break;
+              }
+              ctx.restore();
+            }
+          }
+          
+          // Alsó korall hitbox - pipe.top + gap-től a földig
+          for (let y = pipe.top + w.gap; y < w.h - w.groundH; y += 14) {
+            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 16) {
+              const seed = (x * 0.09 + y * 0.15 + pipe.x * 0.007);
+              const coralSize = 2.5 + Math.sin(seed * 1.8) * 5 + Math.cos(seed * 1.1) * 3; // 0-10.5 pixel
+              const coralX = x + Math.sin(time.current.frameCount * 0.025 + seed) * 7;
+              const coralY = y + Math.cos(time.current.frameCount * 0.02 + seed * 1.4) * 4;
+              
+              // Alsó korall sötétebb színek
+              const colorVariant = Math.floor((seed * 9) % 5);
+              let coralColor: string;
+              switch(colorVariant) {
+                case 0: coralColor = '#CC5555'; break; // Sötét piros
+                case 1: coralColor = '#3BACA0'; break; // Sötét türkiz
+                case 2: coralColor = '#3A96B5'; break; // Sötét kék
+                case 3: coralColor = '#E8956A'; break; // Sötét lazac
+                default: coralColor = '#7BC4B4'; break; // Sötét zöld
+              }
+              ctx.fillStyle = coralColor;
+              
+              ctx.save();
+              ctx.translate(coralX, coralY);
+              ctx.rotate(time.current.frameCount * -0.015 + seed * 1.3);
+              
+              // Alsó korall alakzatok
+              const shape = Math.floor((seed * 7) % 5);
+              switch(shape) {
+                case 0: // Sima korall test
+                  ctx.beginPath();
+                  ctx.ellipse(0, 0, coralSize/2, coralSize/1.5, 0, 0, Math.PI * 2);
+                  ctx.fill();
+                  break;
+                case 1: // Tubular korall
+                  ctx.fillRect(-coralSize/6, -coralSize/2, coralSize/3, coralSize);
+                  ctx.beginPath();
+                  ctx.arc(0, -coralSize/2, coralSize/6, 0, Math.PI);
+                  ctx.fill();
+                  break;
+                case 2: // Lemezes korall
+                  for (let j = 0; j < 3; j++) {
+                    ctx.fillRect(-coralSize/2, -coralSize/2 + j * coralSize/3, coralSize, coralSize/6);
+                  }
+                  break;
+                case 3: // Ágacskás korall
+                  ctx.lineWidth = coralSize/4;
+                  ctx.beginPath();
+                  ctx.moveTo(0, -coralSize/2);
+                  ctx.lineTo(-coralSize/3, 0);
+                  ctx.moveTo(0, -coralSize/2);
+                  ctx.lineTo(coralSize/3, 0);
+                  ctx.moveTo(0, -coralSize/2);
+                  ctx.lineTo(0, coralSize/2);
+                  ctx.stroke();
+                  break;
+                case 4: // Csomós korall
+                  for (let j = 0; j < 4; j++) {
+                    const angle = (j * Math.PI * 2) / 4;
+                    const nx = Math.cos(angle) * coralSize/3;
+                    const ny = Math.sin(angle) * coralSize/3;
+                    ctx.beginPath();
+                    ctx.arc(nx, ny, coralSize/5, 0, Math.PI * 2);
+                    ctx.fill();
+                  }
+                  break;
+              }
+              ctx.restore();
+            }
+          }
+          
+          // Tengeri növények és extra detáljok a széleken
+          ctx.strokeStyle = '#228B22';
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 30; i++) {
+            // Felső rész algái
+            const algaeX = pipe.x + (i % 2 === 0 ? 2 : w.pipeW - 2) + Math.sin(time.current.frameCount * 0.04 + i) * 3;
+            const algaeY = Math.random() * pipe.top;
+            const algaeHeight = 8 + Math.random() * 12;
+            
+            ctx.beginPath();
+            ctx.moveTo(algaeX, algaeY);
+            for (let j = 1; j <= algaeHeight; j += 2) {
+              const wave = Math.sin(j * 0.4 + time.current.frameCount * 0.06 + i) * 2;
+              ctx.lineTo(algaeX + wave, algaeY - j);
+            }
+            ctx.stroke();
+            
+            // Alsó rész algái
+            const lowerAlgaeX = pipe.x + (i % 2 === 0 ? 3 : w.pipeW - 3) + Math.cos(time.current.frameCount * 0.035 + i * 1.5) * 4;
+            const lowerAlgaeY = pipe.top + w.gap + Math.random() * (w.h - w.groundH - pipe.top - w.gap);
+            
+            ctx.beginPath();
+            ctx.moveTo(lowerAlgaeX, lowerAlgaeY);
+            for (let j = 1; j <= algaeHeight; j += 2) {
+              const wave = Math.sin(j * 0.3 + time.current.frameCount * 0.05 + i) * 3;
+              ctx.lineTo(lowerAlgaeX + wave, lowerAlgaeY - j);
+            }
+            ctx.stroke();
+          }
           break;
           
         case 'shipwreck':
@@ -1890,6 +2261,210 @@ export default function SzenyoMadar() {
             ctx.fill();
             
             ctx.restore();
+          }
+          
+          // TELJES HITBOX KITÖLTÉSE - Hajóroncs területek
+          // Felső hajóroncs hitbox - 0-től pipe.top-ig
+          for (let y = 0; y < pipe.top; y += 16) {
+            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 18) {
+              const seed = (x * 0.07 + y * 0.11 + pipe.x * 0.006);
+              const debrisSize = 4 + Math.sin(seed * 1.3) * 6 + Math.cos(seed * 0.8) * 4; // 0-14 pixel
+              const debrisX = x + Math.sin(time.current.frameCount * 0.03 + seed) * 8;
+              const debrisY = y + Math.cos(time.current.frameCount * 0.02 + seed * 1.1) * 6;
+              
+              // Hajóroncs anyagok
+              const materialVariant = Math.floor((seed * 7) % 6);
+              let debrisColor: string;
+              switch(materialVariant) {
+                case 0: debrisColor = '#8B4513'; break; // Rozsdás fa
+                case 1: debrisColor = '#696969'; break; // Szürke fém
+                case 2: debrisColor = '#A0522D'; break; // Sötét fa
+                case 3: debrisColor = '#2F4F4F'; break; // Sötét szürke
+                case 4: debrisColor = '#CD853F'; break; // Világos rozsda
+                default: debrisColor = '#654321'; break; // Sötét barna
+              }
+              ctx.fillStyle = debrisColor;
+              
+              ctx.save();
+              ctx.translate(debrisX, debrisY);
+              ctx.rotate(time.current.frameCount * 0.025 + seed);
+              
+              // Hajóroncs darabok
+              const shape = Math.floor((seed * 8) % 6);
+              switch(shape) {
+                case 0: // Fadeszkák
+                  ctx.fillRect(-debrisSize/2, -debrisSize/4, debrisSize, debrisSize/2);
+                  ctx.strokeStyle = '#654321';
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(-debrisSize/2, -debrisSize/4, debrisSize, debrisSize/2);
+                  break;
+                case 1: // Fémdarabok
+                  ctx.beginPath();
+                  ctx.moveTo(0, -debrisSize/2);
+                  ctx.lineTo(debrisSize/2, 0);
+                  ctx.lineTo(0, debrisSize/2);
+                  ctx.lineTo(-debrisSize/2, 0);
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
+                case 2: // Csavarok/szögek
+                  ctx.beginPath();
+                  ctx.arc(0, 0, debrisSize/3, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.fillStyle = '#2F4F4F';
+                  ctx.beginPath();
+                  ctx.arc(0, 0, debrisSize/6, 0, Math.PI * 2);
+                  ctx.fill();
+                  break;
+                case 3: // Hajólánc
+                  for (let j = 0; j < 3; j++) {
+                    ctx.strokeStyle = debrisColor;
+                    ctx.lineWidth = debrisSize/4;
+                    ctx.beginPath();
+                    ctx.arc(0, j * debrisSize/3 - debrisSize/3, debrisSize/4, 0, Math.PI * 2);
+                    ctx.stroke();
+                  }
+                  break;
+                case 4: // Vitorla darabok
+                  ctx.globalAlpha = 0.7;
+                  ctx.fillStyle = '#F5F5DC';
+                  ctx.fillRect(-debrisSize/3, -debrisSize/2, debrisSize * 0.66, debrisSize);
+                  ctx.globalAlpha = 1.0;
+                  break;
+                case 5: // Hajótest darabok
+                  ctx.beginPath();
+                  ctx.arc(0, 0, debrisSize/2, Math.PI, 0);
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
+              }
+              ctx.restore();
+            }
+          }
+          
+          // Alsó hajóroncs hitbox - pipe.top + gap-től a földig
+          for (let y = pipe.top + w.gap; y < w.h - w.groundH; y += 16) {
+            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 18) {
+              const seed = (x * 0.08 + y * 0.13 + pipe.x * 0.008);
+              const debrisSize = 3 + Math.sin(seed * 1.6) * 7 + Math.cos(seed * 1.2) * 5; // 0-15 pixel
+              const debrisX = x + Math.sin(time.current.frameCount * 0.025 + seed) * 9;
+              const debrisY = y + Math.cos(time.current.frameCount * 0.018 + seed * 1.3) * 7;
+              
+              // Víz alatti hajóroncs anyagok
+              const materialVariant = Math.floor((seed * 9) % 6);
+              let debrisColor: string;
+              switch(materialVariant) {
+                case 0: debrisColor = '#556B2F'; break; // Mohás fa
+                case 1: debrisColor = '#483D8B'; break; // Víz alatti fém
+                case 2: debrisColor = '#2F4F4F'; break; // Korrodált fém
+                case 3: debrisColor = '#6B8E23'; break; // Algás fa
+                case 4: debrisColor = '#708090'; break; // Iszapos fém
+                default: debrisColor = '#4682B4'; break; // Vizes fa
+              }
+              ctx.fillStyle = debrisColor;
+              
+              ctx.save();
+              ctx.translate(debrisX, debrisY);
+              ctx.rotate(time.current.frameCount * -0.02 + seed * 1.5);
+              
+              // Víz alatti hajóroncs darabok
+              const shape = Math.floor((seed * 9) % 7);
+              switch(shape) {
+                case 0: // Mohás fadeszkák
+                  ctx.fillRect(-debrisSize/2, -debrisSize/3, debrisSize, debrisSize * 0.66);
+                  ctx.fillStyle = '#228B22';
+                  ctx.fillRect(-debrisSize/3, -debrisSize/4, debrisSize * 0.66, debrisSize/6);
+                  break;
+                case 1: // Korrodált fémlapok
+                  ctx.beginPath();
+                  for (let j = 0; j < 5; j++) {
+                    const angle = (j * Math.PI * 2) / 5;
+                    const radius = debrisSize/2 + Math.sin(j * 2) * debrisSize/6;
+                    const px = Math.cos(angle) * radius;
+                    const py = Math.sin(angle) * radius;
+                    if (j === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                  }
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
+                case 2: // Horgonyok
+                  ctx.beginPath();
+                  ctx.arc(0, 0, debrisSize/3, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.fillRect(-debrisSize/6, 0, debrisSize/3, debrisSize/2);
+                  ctx.fillRect(-debrisSize/2, debrisSize/3, debrisSize, debrisSize/6);
+                  break;
+                case 3: // Hajókormány
+                  ctx.beginPath();
+                  ctx.arc(0, 0, debrisSize/2, 0, Math.PI * 2);
+                  ctx.stroke();
+                  for (let j = 0; j < 8; j++) {
+                    const angle = (j * Math.PI * 2) / 8;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(Math.cos(angle) * debrisSize/3, Math.sin(angle) * debrisSize/3);
+                    ctx.stroke();
+                  }
+                  break;
+                case 4: // Ágyúgolyók
+                  ctx.beginPath();
+                  ctx.arc(0, 0, debrisSize/2, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.fillStyle = '#2F4F4F';
+                  ctx.beginPath();
+                  ctx.arc(-debrisSize/4, -debrisSize/4, debrisSize/8, 0, Math.PI * 2);
+                  ctx.fill();
+                  break;
+                case 5: // Kötél maradványok
+                  ctx.strokeStyle = '#8B7D6B';
+                  ctx.lineWidth = debrisSize/4;
+                  ctx.beginPath();
+                  for (let j = 0; j < debrisSize; j += 2) {
+                    const wave = Math.sin(j * 0.5 + seed) * debrisSize/4;
+                    ctx.lineTo(wave, j - debrisSize/2);
+                  }
+                  ctx.stroke();
+                  break;
+                case 6: // Lőportartók
+                  ctx.fillRect(-debrisSize/3, -debrisSize/2, debrisSize * 0.66, debrisSize);
+                  ctx.strokeStyle = '#2F4F4F';
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(-debrisSize/3, -debrisSize/2, debrisSize * 0.66, debrisSize);
+                  break;
+              }
+              ctx.restore();
+            }
+          }
+          
+          // Vízalatti vegetáció és extra részletek a széleken
+          ctx.strokeStyle = '#006400';
+          ctx.lineWidth = 3;
+          for (let i = 0; i < 25; i++) {
+            // Felső tengeri növények
+            const seaweedX = pipe.x + (i % 2 === 0 ? 1 : w.pipeW - 1) + Math.sin(time.current.frameCount * 0.04 + i) * 4;
+            const seaweedY = Math.random() * pipe.top;
+            const seaweedHeight = 10 + Math.random() * 15;
+            
+            ctx.beginPath();
+            ctx.moveTo(seaweedX, seaweedY);
+            for (let j = 1; j <= seaweedHeight; j += 3) {
+              const wave = Math.sin(j * 0.3 + time.current.frameCount * 0.05 + i) * 3;
+              ctx.lineTo(seaweedX + wave, seaweedY - j);
+            }
+            ctx.stroke();
+            
+            // Alsó tengeri növények
+            const lowerSeaweedX = pipe.x + (i % 2 === 0 ? 2 : w.pipeW - 2) + Math.cos(time.current.frameCount * 0.035 + i * 1.3) * 5;
+            const lowerSeaweedY = pipe.top + w.gap + Math.random() * (w.h - w.groundH - pipe.top - w.gap);
+            
+            ctx.beginPath();
+            ctx.moveTo(lowerSeaweedX, lowerSeaweedY);
+            for (let j = 1; j <= seaweedHeight; j += 3) {
+              const wave = Math.sin(j * 0.4 + time.current.frameCount * 0.06 + i) * 4;
+              ctx.lineTo(lowerSeaweedX + wave, lowerSeaweedY - j);
+            }
+            ctx.stroke();
           }
           break;
           
@@ -2538,6 +3113,46 @@ export default function SzenyoMadar() {
     
     ctx.restore();
     
+    // Bullets rendering (for Rambo Bird)
+    b.bullets.forEach(bullet => {
+      ctx.fillStyle = '#FFFF00';
+      ctx.beginPath();
+      ctx.arc(bullet.x, bullet.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Bullet trail
+      ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+      ctx.beginPath();
+      ctx.arc(bullet.x - 5, bullet.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    // Lives indicator (for Robot Bird)
+    if (b.maxLives > 1) {
+      ctx.save();
+      ctx.fillStyle = '#FF0000';
+      ctx.font = '16px monospace';
+      ctx.fillText(`❤️ x${b.lives}`, 10, 50);
+      
+      // Auto-shield timer
+      const currentSkin = getCurrentBirdSkin();
+      if (currentSkin.abilities.autoShield && b.autoShieldTimer > 0) {
+        const timeLeft = Math.ceil(b.autoShieldTimer / 60);
+        ctx.fillStyle = '#00FFFF';
+        ctx.fillText(`🛡️ ${timeLeft}s`, 10, 70);
+      }
+      ctx.restore();
+    }
+    
+    // Shooting cooldown indicator (for Rambo Bird)
+    if (b.canShoot && b.shootCooldown > 0) {
+      ctx.save();
+      ctx.fillStyle = '#FFFF00';
+      ctx.font = '12px monospace';
+      ctx.fillText(`🔫 ${Math.ceil((30 - b.shootCooldown) / 6) * 10}%`, 10, state === GameState.RUN && b.maxLives > 1 ? 90 : 50);
+      ctx.restore();
+    }
+    
     // Talaj
     ctx.fillStyle = '#DEB887';
     ctx.fillRect(0, w.h - w.groundH, w.w, w.groundH);
@@ -2629,6 +3244,11 @@ export default function SzenyoMadar() {
         case 'ArrowUp':
           e.preventDefault();
           flap();
+          break;
+        case 'KeyX':
+        case 'KeyS':
+          e.preventDefault();
+          shoot();
           break;
         case 'KeyP':
           togglePause();
@@ -3217,6 +3837,30 @@ export default function SzenyoMadar() {
         {state === GameState.RUN && (
           <div className="absolute bottom-4 left-4 text-white text-sm pixel-text opacity-75">
             P = Szünet | D = Debug
+            {bird.current.canShoot && <div>X/S = Lövés</div>}
+          </div>
+        )}
+        
+        {/* Shooting button for Rambo Bird (mobile) */}
+        {state === GameState.RUN && bird.current.canShoot && (
+          <div className="absolute bottom-4 right-4 pointer-events-auto">
+            <button
+              className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors"
+              onTouchStart={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                shoot();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                shoot();
+              }}
+              disabled={bird.current.shootCooldown > 0}
+              style={{ opacity: bird.current.shootCooldown > 0 ? 0.5 : 1 }}
+            >
+              🔫
+            </button>
           </div>
         )}
         
