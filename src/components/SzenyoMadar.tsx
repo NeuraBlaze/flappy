@@ -1478,6 +1478,67 @@ export default function SzenyoMadar() {
           ctx.fill();
           
           ctx.restore();
+          
+          // Törmelékek az aszteroidák hitbox területén - vizuális kitöltés
+          // Felső aszteroida hitbox területének kitöltése
+          ctx.fillStyle = '#5A5A5A';
+          for (let i = 0; i < 8; i++) {
+            const debrisX = pipe.x + (Math.sin(time.current.frameCount * 0.01 + i) * 15) + w.pipeW/2;
+            const debrisY = pipe.top - 60 + (Math.cos(time.current.frameCount * 0.008 + i * 1.5) * 20);
+            const debrisSize = 2 + Math.sin(i * 2 + time.current.frameCount * 0.01) * 1;
+            
+            ctx.save();
+            ctx.translate(debrisX, debrisY);
+            ctx.rotate(time.current.frameCount * 0.02 + i);
+            ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize, debrisSize);
+            ctx.restore();
+          }
+          
+          // Alsó aszteroida hitbox területének kitöltése
+          ctx.fillStyle = '#4A4A4A';
+          for (let i = 0; i < 6; i++) {
+            const debrisX = pipe.x + (Math.sin(time.current.frameCount * 0.012 + i + 3) * 18) + w.pipeW/2;
+            const debrisY = pipe.top + w.gap + 60 + (Math.cos(time.current.frameCount * 0.009 + i * 1.8) * 25);
+            const debrisSize = 1.5 + Math.cos(i * 1.5 + time.current.frameCount * 0.012) * 0.8;
+            
+            ctx.save();
+            ctx.translate(debrisX, debrisY);
+            ctx.rotate(time.current.frameCount * -0.015 + i * 1.2);
+            
+            // Különböző alakú törmelékek
+            if (i % 3 === 0) {
+              // Háromszög törmelék
+              ctx.beginPath();
+              ctx.moveTo(0, -debrisSize);
+              ctx.lineTo(-debrisSize * 0.8, debrisSize * 0.5);
+              ctx.lineTo(debrisSize * 0.8, debrisSize * 0.5);
+              ctx.closePath();
+              ctx.fill();
+            } else if (i % 3 === 1) {
+              // Kör törmelék
+              ctx.beginPath();
+              ctx.arc(0, 0, debrisSize * 0.6, 0, Math.PI * 2);
+              ctx.fill();
+            } else {
+              // Négyzet törmelék
+              ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize, debrisSize);
+            }
+            ctx.restore();
+          }
+          
+          // Extra kis porszemcsék az egész hitbox területen
+          ctx.fillStyle = '#808080';
+          for (let i = 0; i < 12; i++) {
+            const dustX = pipe.x + (Math.random() * w.pipeW);
+            const dustY = pipe.top - 80 + (Math.random() * (w.gap + 160));
+            const dustSize = 0.5 + Math.random() * 0.5;
+            
+            ctx.globalAlpha = 0.3 + Math.sin(time.current.frameCount * 0.05 + i) * 0.2;
+            ctx.beginPath();
+            ctx.arc(dustX, dustY, dustSize, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+          }
           break;
           
         case 'pipe':
