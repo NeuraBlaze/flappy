@@ -957,13 +957,13 @@ export default function SzenyoMadar() {
   const updateGame = useCallback((deltaTime: number) => {
     const dt = Math.min(deltaTime, 20); // Cap delta time
     
-    // Game physics - enhanced with combinations
+    // Game physics - enhanced with combinations (50% gyorsabb alapsebesség)
     const b = bird.current;
-    let speedMultiplier = 1.0;
-    if (b.slowMotion > 0) speedMultiplier = 0.5;
-    if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = 1.5; // Rainbow only if not in god mode
-    if (b.superMode > 0) speedMultiplier = 2.0; // Super mode = extra speed
-    if (b.godMode > 0) speedMultiplier = 0.8; // God mode = controlled power
+    let speedMultiplier = 1.5; // Alapértelmezett sebesség 50%-kal gyorsabb
+    if (b.slowMotion > 0) speedMultiplier = 0.75; // Lassítás is arányosan gyorsabb
+    if (b.rainbow > 0 && b.godMode === 0) speedMultiplier = 2.25; // Rainbow mode gyorsabb
+    if (b.superMode > 0) speedMultiplier = 3.0; // Super mode még gyorsabb
+    if (b.godMode > 0) speedMultiplier = 1.2; // God mode is gyorsabb
     
     const gameSpeed = speedMultiplier;
     const w = world.current;
