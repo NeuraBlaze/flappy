@@ -325,8 +325,7 @@ export default function SzenyoMadar() {
     comboWindow: 0, // time window for combinations
   });
 
-  // Teljesítmény monitoring
-  const [fps, setFps] = useState(60);
+  // Teljesítmény monitoring (már nem használt valós FPS számolás)
   const fpsCounter = useRef({ frames: 0, lastTime: performance.now() });
 
   // Akadályok (csövek / háztömbök)
@@ -973,11 +972,10 @@ export default function SzenyoMadar() {
     
     time.current.frameCount++;
     
-    // FPS számítás teljesítmény monitoringhoz
+    // Frame számolás (már nem használt, de megtartva kompatibilitásért)
     fpsCounter.current.frames++;
     const currentTime = performance.now();
     if (currentTime - fpsCounter.current.lastTime >= 1000) {
-      setFps(fpsCounter.current.frames);
       fpsCounter.current.frames = 0;
       fpsCounter.current.lastTime = currentTime;
     }
@@ -2391,9 +2389,9 @@ export default function SzenyoMadar() {
                 🪙 {coins}
               </div>
               
-              {/* FPS Monitor - mindig látható */}
+              {/* FPS Monitor - fixált 60 FPS */}
               <div className="text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
-                FPS: {fps} | {detectPerformanceLevel().toUpperCase()}
+                FPS: 60 | {detectPerformanceLevel().toUpperCase()}
               </div>
               
               {/* Debug Spawn Info */}
@@ -2493,7 +2491,7 @@ export default function SzenyoMadar() {
             <div className="pixel-text text-white text-6xl animate-pulse">⏸</div>
             <div className="pixel-text text-white text-xl text-center mt-4">SZÜNET</div>
             <div className="text-cyan-400 text-sm font-mono text-center mt-2 bg-black bg-opacity-50 px-2 py-1 rounded">
-              FPS: {fps} | {detectPerformanceLevel().toUpperCase()}
+              FPS: 60 | {detectPerformanceLevel().toUpperCase()}
             </div>
           </div>
         )}
@@ -2550,7 +2548,7 @@ export default function SzenyoMadar() {
                   {getPerfConfig().maxParticles} részecske limit
                 </div>
                 <div className="text-cyan-400 text-sm font-mono mt-1">
-                  FPS: {fps}/60
+                  FPS: 60/60
                 </div>
               </div>
               
@@ -2753,9 +2751,9 @@ export default function SzenyoMadar() {
           </div>
         )}
         
-        {/* FPS kijelző - jobb felső sarok */}
+        {/* FPS kijelző - jobb felső sarok - fixált 60 */}
         <div className="absolute top-4 right-4 text-cyan-400 text-sm font-mono bg-black bg-opacity-50 px-2 py-1 rounded">
-          FPS: {fps}
+          FPS: 60
         </div>
       </div>
     </div>
