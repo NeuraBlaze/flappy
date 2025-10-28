@@ -953,9 +953,12 @@ export default function SzenyoMadar() {
     });
   }, []);
 
-  // Játék logika update
+  // Játék logika update - 60 FPS standardizált
   const updateGame = useCallback((deltaTime: number) => {
-    const dt = Math.min(deltaTime, 20); // Cap delta time
+    // Standardizált delta time 60 FPS-hez (16.67ms)
+    const standardDelta = 16.67;
+    const dt = Math.min(deltaTime, 33); // Cap at 30 FPS minimum
+    const deltaMultiplier = dt / standardDelta; // Normalizálás 60 FPS-re
     
     // Game physics - enhanced with combinations (50% gyorsabb alapsebesség)
     const b = bird.current;
@@ -979,24 +982,24 @@ export default function SzenyoMadar() {
       fpsCounter.current.lastTime = currentTime;
     }
     
-    // Madár fizika és animáció - skin abilities
+    // Madár fizika és animáció - skin abilities (60 FPS standardizált)
     const currentSkin = getCurrentBirdSkin();
     const gravityMultiplier = currentSkin.abilities.gravity || 1.0;
     
-    b.vy += w.gravity * gameSpeed * gravityMultiplier;
-    b.y += b.vy * gameSpeed;
+    b.vy += w.gravity * gameSpeed * gravityMultiplier * deltaMultiplier;
+    b.y += b.vy * gameSpeed * deltaMultiplier;
     b.angle = Math.max(-0.5, Math.min(0.8, b.vy * 0.1));
     
-    // Madár animáció frissítés
-    b.animFrame += gameSpeed;
+    // Madár animáció frissítés (60 FPS standardizált)
+    b.animFrame += gameSpeed * deltaMultiplier;
     if (b.animFrame >= 60 / birdSprites.current.flying.frameRate) {
       b.wingCycle = (b.wingCycle + 1) % birdSprites.current.flying.frames.length;
       b.animFrame = 0;
     }
     
-    // Csövek mozgatása és generálása
+    // Csövek mozgatása és generálása (60 FPS standardizált)
     pipes.current.forEach(pipe => {
-      pipe.x -= w.speed * gameSpeed;
+      pipe.x -= w.speed * gameSpeed * deltaMultiplier;
     });
     
     // Új cső generálás - biome alapú
@@ -1043,16 +1046,16 @@ export default function SzenyoMadar() {
     
     powerUps.current.forEach(powerUp => {
       if (!powerUp.collected) {
-        powerUp.x -= w.speed * gameSpeed * 0.7;
+        powerUp.x -= w.speed * gameSpeed * 0.7 * deltaMultiplier;
         powerUp.animTime += dt;
       }
     });
     powerUps.current = powerUps.current.filter(p => p.x > -20);
     
-    // Érmék update és mega mode enhanced collection
+    // Érmék update és mega mode enhanced collection (60 FPS standardizált)
     gameCoins.current.forEach(coin => {
       if (!coin.collected) {
-        coin.x -= w.speed * gameSpeed * 0.8;
+        coin.x -= w.speed * gameSpeed * 0.8 * deltaMultiplier;
         coin.animTime += dt;
         
         // Enhanced magnet range in mega mode
@@ -1121,19 +1124,19 @@ export default function SzenyoMadar() {
     if (b.megaMode > 0) b.megaMode--;
     if (b.godMode > 0) b.godMode--;
     
-    // Háttér objektumok
+    // Háttér objektumok (60 FPS standardizált)
     spawnBackgroundObject();
     bgObjects.current.forEach(obj => {
-      obj.x -= obj.speed * gameSpeed;
+      obj.x -= obj.speed * gameSpeed * deltaMultiplier;
     });
     bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
     
     spawnWeatherParticles(); // Weather effektek
     
-    // Weather particles update
+    // Weather particles update (60 FPS standardizált)
     weather.current.particles.forEach(particle => {
-      particle.x += particle.vx * gameSpeed;
-      particle.y += particle.vy * gameSpeed;
+      particle.x += particle.vx * gameSpeed * deltaMultiplier;
+      particle.y += particle.vy * gameSpeed * deltaMultiplier;
       if (particle.type === 'fog') {
         particle.vy += 0.01; // Slight drift
       }
@@ -2211,7 +2214,7 @@ export default function SzenyoMadar() {
     ctx.restore();
   }, [debug]);
 
-  // Fő game loop
+  // Fő game loop - 60 FPS standardizálva
   const gameLoop = useCallback((now: number) => {
     if (!canvasRef.current) return;
     
@@ -2219,9 +2222,17 @@ export default function SzenyoMadar() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Delta time számítás
+    // 60 FPS limitálás - standard frame timing
     if (time.current.last === 0) time.current.last = now;
     const deltaTime = now - time.current.last;
+    
+    // 16.67ms = 60 FPS target frame time
+    const targetFrameTime = 1000 / 60;
+    if (deltaTime < targetFrameTime) {
+      rafRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    
     time.current.last = now;
     
     // Csak futó állapotban frissítjük a játékot
