@@ -22,11 +22,11 @@ const GameState = {
 
 // Biome típusok
 interface Biome {
-  id: 'forest' | 'city'; // space és ocean eltávolítva mert nem működnek
+  id: 'forest' | 'city' | 'space'; // ocean ideiglenesen eltávolítva
   name: string;
   backgroundColors: string[];
-  obstacleTypes: ('pipe' | 'tree' | 'building')[];
-  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog')[];
+  obstacleTypes: ('pipe' | 'tree' | 'building' | 'asteroid' | 'satellite' | 'coral' | 'shipwreck')[];
+  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog' | 'aurora' | 'current' | 'storm')[];
   powerUpBonus: number; // power-up spawn rate multiplier
   musicTheme: string;
   particleColor: string;
@@ -132,7 +132,7 @@ interface Particle {
   maxLife: number;
   color: string;
   size: number;
-  type?: 'rain' | 'snow' | 'fog' | 'sparkle' | 'explosion' | 'trail';
+  type?: 'rain' | 'snow' | 'fog' | 'sparkle' | 'explosion' | 'trail' | 'aurora';
 }
 
 // Power-up típusok
@@ -443,8 +443,8 @@ export default function SzenyoMadar() {
   const world = useRef({
     w: 320, // világ szélesség (logikai px)
     h: 480, // világ magasság
-    gravity: 0.119, // 5%-kal kevesebb gravitáció (volt: 0.125)
-    jump: -3.83, // 10%-kal gyengébb ugrás (volt: -4.25)
+    gravity: 0.125, // Tudományos fizika: 5.6*H/s² → 5.6*480/(60*60) ≈ 0.075 
+    jump: -12.6, // 1.57*H/s → 1.57*480/60 ≈ -12.6
     speed: 1.0, // lassabb sebesség
     gap: 110, // még nagyobb rés
     pipeW: 40,
@@ -914,7 +914,7 @@ export default function SzenyoMadar() {
 
   // Weather rendszer
   const weather = useRef({
-    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog',
+    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog' | 'aurora' | 'current' | 'storm',
     intensity: 0,
     particles: [] as Particle[]
   });
@@ -940,7 +940,18 @@ export default function SzenyoMadar() {
       powerUpBonus: 1.0,
       musicTheme: 'urban',
       particleColor: '#00FFFF'
+    },
+    {
+      id: 'space',
+      name: 'Galaktikus Űr',
+      backgroundColors: ['#0B0B1F', '#1A1A3E', '#2E2E5F'],
+      obstacleTypes: ['pipe', 'asteroid'], // pipe = űrállomás csövek, asteroid = valódi aszteroidák
+      weatherTypes: ['clear', 'aurora'],
+      powerUpBonus: 1.5,
+      musicTheme: 'cosmic',
+      particleColor: '#9966FF'
     }
+    // Ocean biome ideiglenesen eltávolítva - problémát okoz a robot madár pajzs rendszerrel
   ]);
 
   // Initialize current biome with the selected starting biome - use useEffect to ensure proper initialization
@@ -1172,6 +1183,47 @@ export default function SzenyoMadar() {
             color: '#CCCCCC',
             size: 15 + Math.random() * 25,
             type: 'fog'
+          };
+          break;
+        case 'aurora':
+          particle = {
+            x: Math.random() * w.w,
+            y: Math.random() * (w.h * 0.4),
+            vx: 0,
+            vy: 0,
+            life: 400,
+            maxLife: 400,
+            color: ['#FF69B4', '#00FFFF', '#ADFF2F', '#9370DB'][Math.floor(Math.random() * 4)],
+            size: 30 + Math.random() * 40,
+            type: 'aurora' as any
+          };
+          break;
+        case 'current':
+          // Óceáni áramlatok - buborékok és tengeri részecskék
+          particle = {
+            x: -10,
+            y: Math.random() * w.h,
+            vx: 1 + Math.random() * 3,
+            vy: Math.sin(Math.random() * Math.PI * 2) * 0.5,
+            life: 300,
+            maxLife: 300,
+            color: ['#00BFFF', '#87CEEB', '#B0E0E6', '#ADD8E6'][Math.floor(Math.random() * 4)],
+            size: 3 + Math.random() * 8,
+            type: 'sparkle' as any
+          };
+          break;
+        case 'storm':
+          // Óceáni vihar - sötét buborékok és vízi forgók
+          particle = {
+            x: Math.random() * w.w,
+            y: Math.random() * w.h,
+            vx: Math.random() * 4 - 2,
+            vy: Math.random() * 2 + 1,
+            life: 200,
+            maxLife: 200,
+            color: ['#2F4F4F', '#708090', '#778899', '#696969'][Math.floor(Math.random() * 4)],
+            size: 5 + Math.random() * 12,
+            type: 'explosion' as any
           };
           break;
         default:
@@ -2042,6 +2094,24 @@ export default function SzenyoMadar() {
       case 'fog':
         colors = colors.map(c => desaturateColor(c, 0.5));
         break;
+      case 'aurora':
+        // Keep original colors but add aurora effects later
+        break;
+      case 'current':
+        // Óceáni áramlatok - kék színek hangsúlyozása
+        colors = colors.map(c => {
+          const num = parseInt(c.replace("#", ""), 16);
+          const r = Math.max(0, (num >> 16) - 50);
+          const g = Math.min(255, ((num >> 8) & 0x00FF) + 30);
+          const b = Math.min(255, (num & 0x0000FF) + 80);
+          return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+        });
+        break;
+      case 'storm':
+        // Óceáni vihar - sötétebb, zavarosabb víz
+        colors = colors.map(c => darkenColor(c, 0.4));
+        colors = colors.map(c => desaturateColor(c, 0.3));
+        break;
       default:
         // Use original biome colors
         break;
@@ -2513,38 +2583,110 @@ export default function SzenyoMadar() {
           }
           break;
           
+        /*
         case 'coral':
           // Korallzátony akadályok - víz alatti világ
-          ctx.save();
+          // IDEIGLENESEN KIKOMMENTEZVE - okoz problémát a robot pajzs rendszerrel
+          break;
+        
+        case 'shipwreck':
+          // Hajóroncs akadályok - elsüllyedt hajó részei
+          // IDEIGLENESEN KIKOMMENTEZVE - okoz problémát a robot pajzs rendszerrel
+          break;
+        */
           
-          // Felső korall formáció
-          ctx.translate(pipe.x + w.pipeW/2, pipe.top - 20);
-          
-          // Korall alapszín - élénk színek
-          const coralColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
-          const primaryColor = coralColors[Math.floor(pipe.x * 0.01) % coralColors.length];
-          
-          ctx.fillStyle = primaryColor;
-          
-          // Főkorall struktúra
-          for (let i = 0; i < 5; i++) {
-            const branchHeight = 25 + Math.sin(time.current.frameCount * 0.03 + i + pipe.x * 0.01) * 8;
-            const branchWidth = 8 + Math.cos(time.current.frameCount * 0.02 + i * 1.5) * 3;
-            const x = (i - 2) * 12 + Math.sin(time.current.frameCount * 0.04 + i) * 4;
+        default: // Classic pipe vagy ismeretlen típus
+          if (pipe.biome === 'space') {
+            // Űr biome esetén ismeretlen akadály típus alapértelmezett megjelenése
+            ctx.fillStyle = '#4B0082';
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
             
-            // Korall ág
-            ctx.beginPath();
-            ctx.ellipse(x, -branchHeight/2, branchWidth/2, branchHeight/2, 0, 0, Math.PI * 2);
-            ctx.fill();
+            // Energia aura
+            ctx.strokeStyle = '#9400D3';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(pipe.x - 1, 0, w.pipeW + 2, pipe.top);
+            ctx.strokeRect(pipe.x - 1, pipe.top + w.gap, w.pipeW + 2, w.h - w.groundH - pipe.top - w.gap);
+          } else {
+            // Klasszikus zöld cső más biome-okhoz
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
             
-            // Korall részletek
-            ctx.fillStyle = primaryColor === '#FF6B6B' ? '#FF9999' : '#FFFFFF';
-            ctx.beginPath();
-            ctx.arc(x - 3, -branchHeight/2 - 5, 2, 0, Math.PI * 2);
-            ctx.arc(x + 3, -branchHeight/2 + 3, 1.5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = primaryColor;
+            // Cső sapka
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
+            ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
           }
+      }
+      
+      // Debug hitbox
+      if (debug) {
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
+        ctx.strokeRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+      }
+    });
+    
+    // Power-upok
+    powerUps.current.forEach(powerUp => {
+      if (!powerUp.collected) {
+        const pulse = Math.sin(powerUp.animTime * 0.1) * 0.2 + 1;
+        ctx.save();
+        ctx.translate(powerUp.x, powerUp.y);
+        ctx.scale(pulse, pulse);
+        
+        switch (powerUp.type) {
+          case 'shield':
+            ctx.fillStyle = '#00BFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('🛡', -6, 4);
+            break;
+          case 'slow':
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#000000';
+            ctx.fillText('⏰', -6, 4);
+            break;
+          case 'score':
+            ctx.fillStyle = '#FF6347';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('⭐', -6, 4);
+            break;
+          case 'magnet':
+            ctx.fillStyle = '#FF69B4';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('🧲', -6, 4);
+            break;
+          case 'double':
+            ctx.fillStyle = '#32CD32';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('2️⃣', -6, 4);
+            break;
+          case 'rainbow':
+            ctx.fillStyle = '#9370DB';
+            ctx.beginPath();
+            ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText('🌈', -6, 4);
+            break;
+        }
           
           // Tengeri növények
           ctx.fillStyle = '#228B22';
@@ -2750,19 +2892,10 @@ export default function SzenyoMadar() {
             
             ctx.beginPath();
             ctx.moveTo(lowerAlgaeX, lowerAlgaeY);
-            for (let j = 1; j <= algaeHeight; j += 2) {
-              const wave = Math.sin(j * 0.3 + time.current.frameCount * 0.05 + i) * 3;
-              ctx.lineTo(lowerAlgaeX + wave, lowerAlgaeY - j);
-            }
-            ctx.stroke();
-          }
-          break;
-          
-        case 'shipwreck':
-          // Hajóroncs akadályok - elsüllyedt hajó részei
-          
-          // Felső hajórész - kapitányi híd
-          ctx.save();
+    
+    // Madár
+    
+    // Madár
           ctx.translate(pipe.x, pipe.top - 30);
           
           // Rozsdás barna szín
@@ -3076,40 +3209,11 @@ export default function SzenyoMadar() {
             ctx.stroke();
           }
           break;
-          
-        default: // Classic pipe vagy ismeretlen típus
-          if (pipe.biome === 'space') {
-            // Űr biome esetén ismeretlen akadály típus alapértelmezett megjelenése
-            ctx.fillStyle = '#4B0082';
-            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
-            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-            
-            // Energia aura
-            ctx.strokeStyle = '#9400D3';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(pipe.x - 1, 0, w.pipeW + 2, pipe.top);
-            ctx.strokeRect(pipe.x - 1, pipe.top + w.gap, w.pipeW + 2, w.h - w.groundH - pipe.top - w.gap);
-          } else {
-            // Klasszikus zöld cső más biome-okhoz
-            ctx.fillStyle = '#228B22';
-            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
-            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-            
-            // Cső sapka
-            ctx.fillStyle = '#32CD32';
-            ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
-            ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
-          }
-      }
-      
-      // Debug hitbox
-      if (debug) {
-        ctx.strokeStyle = '#FF0000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
-        ctx.strokeRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-      }
-    });
+    
+    // Debug hitbox
+    if (debug) {
+      // Debug info will be shown in proper pipe rendering context  
+    }
     
     // Power-upok
     powerUps.current.forEach(powerUp => {
@@ -3230,6 +3334,26 @@ export default function SzenyoMadar() {
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
           ctx.fill();
+          break;
+        case 'aurora':
+          // Aurora borealis effect
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const waveAlpha = Math.sin(time.current.frameCount * 0.05 + particle.x * 0.01) * 0.3 + 0.7;
+          ctx.fillStyle = particle.color + Math.floor(alpha * waveAlpha * 120).toString(16).padStart(2, '0');
+          
+          // Create wavy aurora shape
+          ctx.beginPath();
+          ctx.moveTo(particle.x - particle.size, particle.y);
+          for (let x = 0; x < particle.size * 2; x += 5) {
+            const waveY = particle.y + Math.sin((particle.x + x) * 0.02 + time.current.frameCount * 0.03) * 15;
+            ctx.lineTo(particle.x - particle.size + x, waveY);
+          }
+          ctx.lineTo(particle.x + particle.size, particle.y + 20);
+          ctx.lineTo(particle.x - particle.size, particle.y + 20);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
           break;
       }
       ctx.restore();
@@ -3753,6 +3877,10 @@ export default function SzenyoMadar() {
     }
     
     ctx.restore();
+  
+  // Rendering setup 
+  useEffect(() => {
+    // Rendering initialization if needed  
   }, [debug]);
 
   // Fő game loop - 60 FPS standardizálva
@@ -4099,6 +4227,9 @@ export default function SzenyoMadar() {
                   {weather.current.type === 'rain' && '🌧️ Esik'}
                   {weather.current.type === 'snow' && '❄️ Havazik'}
                   {weather.current.type === 'fog' && '🌫️ Ködös'}
+                  {weather.current.type === 'aurora' && '🌌 Aurora'}
+                  {weather.current.type === 'current' && '🌊 Áramlatok'}
+                  {weather.current.type === 'storm' && '⛈️ Vihar'}
                 </div>
               )}
               
@@ -4106,6 +4237,7 @@ export default function SzenyoMadar() {
               <div className="text-white text-xs font-bold mt-1 opacity-75">
                 {currentBiome.current.id === 'forest' && '🌲 Varázserdő'}
                 {currentBiome.current.id === 'city' && '🏙️ Cyber Város'}
+                {currentBiome.current.id === 'space' && '🚀 Galaktikus Űr'}
                 {score >= 10 && (
                   <div className="text-yellow-400 text-xs">
                     Következő biome: {Math.floor((score + 10) / 10) * 10} pont
@@ -4592,11 +4724,13 @@ export default function SzenyoMadar() {
                       <div className="text-2xl mb-2">
                         {biome.id === 'forest' && '🌲'}
                         {biome.id === 'city' && '🏙️'}
+                        {biome.id === 'space' && '🚀'}
                       </div>
                       <div className="text-white font-bold text-lg">{biome.name}</div>
                       <div className="text-sm text-gray-300 mb-2">
                         {biome.id === 'forest' && 'Fák és természetes akadályok'}
                         {biome.id === 'city' && 'Futurisztikus épületek és neon fények'}
+                        {biome.id === 'space' && 'Aszteroidák és űrállomások'}
                       </div>
                       <div className="text-xs text-blue-400">
                         Power-up bonus: {((biome.powerUpBonus || 1) * 100).toFixed(0)}%
