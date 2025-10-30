@@ -1,6 +1,69 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 
 /**
+ * ========================================
+ * MONOLIT KÓD KOMPONENS SZÉTBONTÁSI TERV
+ * ========================================
+ * 
+ * JÖVŐBELI KOMPONENSEK FELCÍMKÉZÉSE:
+ * 
+ * 🏗️ CORE SYSTEM COMPONENTS:
+ * - GameEngine.tsx        - Fő játék logika és loop
+ * - PhysicsEngine.tsx     - Fizika számítások (gravitáció, ütközés)
+ * - RenderEngine.tsx      - Canvas renderelés és optimalizáció
+ * 
+ * 🎮 GAME LOGIC COMPONENTS:
+ * - GameStateManager.tsx  - Játék állapot kezelés (menu, run, pause, gameover)
+ * - PlayerController.tsx  - Input kezelés és madár vezérlés
+ * - CollisionDetector.tsx - Ütközés detektálás és fizika
+ * 
+ * 🌍 ENVIRONMENT COMPONENTS:
+ * - BiomeManager.tsx      - Biome rendszer és váltás
+ * - WeatherSystem.tsx     - Időjárás effektek
+ * - BackgroundRenderer.tsx- Háttér és parallax scrolling
+ * 
+ * 🚧 OBSTACLE COMPONENTS:
+ * - ObstacleManager.tsx   - Akadályok spawn és kezelés
+ * - PipeRenderer.tsx      - Csövek renderelése
+ * - ObstacleRenderer.tsx  - Különféle akadályok (fa, épület)
+ * 
+ * 💫 EFFECT COMPONENTS:
+ * - ParticleSystem.tsx    - Részecske effektek
+ * - PowerUpManager.tsx    - Power-up spawn és logika
+ * - CoinSystem.tsx        - Érme rendszer
+ * 
+ * 🎨 UI COMPONENTS:
+ * - GameUI.tsx           - Fő játék felület
+ * - MenuScreen.tsx       - Főmenü
+ * - GameOverScreen.tsx   - Game over képernyő
+ * - SettingsPanel.tsx    - Beállítások
+ * - ScoreDisplay.tsx     - Pontszám kijelző
+ * - DebugPanel.tsx       - Debug információk
+ * 
+ * 🐦 CHARACTER COMPONENTS:
+ * - BirdRenderer.tsx     - Madár renderelés és animáció
+ * - BirdSkinManager.tsx  - Skin rendszer
+ * - BirdAbilities.tsx    - Madár képességek
+ * 
+ * 🏪 SHOP COMPONENTS:
+ * - ShopSystem.tsx       - Bolt rendszer
+ * - AchievementSystem.tsx- Achievement rendszer
+ * - InventoryManager.tsx - Inventory kezelés
+ * 
+ * ⚡ PERFORMANCE COMPONENTS:
+ * - PerformanceManager.tsx- Teljesítmény optimalizáció
+ * - ConfigManager.tsx    - Konfigurációs beállítások
+ * 
+ * 💾 DATA COMPONENTS:
+ * - SaveSystem.tsx       - Mentés/betöltés
+ * - LocalStorageManager.tsx- LocalStorage kezelés
+ * 
+ * 🔊 AUDIO COMPONENTS:
+ * - AudioManager.tsx     - Hang effektek és zene
+ * - SoundPlayer.tsx      - Hang lejátszás
+ */
+
+/**
  * Szenyo-madár – egy Flappy Bird jellegű mini‑game
  * --------------------------------------------------
  * • React + Tailwind (stílus), egyetlen komponensben
@@ -12,6 +75,8 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
  * • Egyedi elemek: részecske effektek, power-upok, változatos akadályok
  */
 
+// ===== 🎮 GAME STATE MANAGEMENT =====
+// Jövőbeli GameStateManager.tsx komponens
 // Játék állapot enum
 const GameState = {
   MENU: "menu",
@@ -20,6 +85,8 @@ const GameState = {
   PAUSE: "pause",
 } as const;
 
+// ===== 🌍 BIOME & ENVIRONMENT SYSTEM =====
+// Jövőbeli BiomeManager.tsx komponens
 // Biome típusok
 interface Biome {
   id: 'forest' | 'city'; // space és ocean eltávolítva mert nem működnek
@@ -32,6 +99,8 @@ interface Biome {
   particleColor: string;
 }
 
+// ===== 🎨 ANIMATION & SPRITE SYSTEM =====
+// Jövőbeli SpriteManager.tsx komponens
 // Sprite rendszer
 interface SpriteFrame {
   x: number;
@@ -46,6 +115,8 @@ interface AnimationData {
   loop: boolean;
 }
 
+// ===== ⚡ PERFORMANCE MANAGEMENT SYSTEM =====
+// Jövőbeli PerformanceManager.tsx komponens
 // Particle típusok
 // Kiegyensúlyozott teljesítmény optimalizáció konstansok
 const PERFORMANCE_CONFIG = {
@@ -123,6 +194,8 @@ const getPerfConfig = () => {
   return PERFORMANCE_CONFIG[level as keyof typeof PERFORMANCE_CONFIG];
 };
 
+// ===== 💫 PARTICLE SYSTEM =====
+// Jövőbeli ParticleSystem.tsx komponens
 interface Particle {
   x: number;
   y: number;
@@ -135,6 +208,8 @@ interface Particle {
   type?: 'rain' | 'snow' | 'fog' | 'sparkle' | 'explosion' | 'trail';
 }
 
+// ===== 💎 POWER-UP SYSTEM =====
+// Jövőbeli PowerUpManager.tsx komponens
 // Power-up típusok
 interface PowerUp {
   x: number;
@@ -144,6 +219,8 @@ interface PowerUp {
   animTime: number;
 }
 
+// ===== 🪙 COIN SYSTEM =====
+// Jövőbeli CoinSystem.tsx komponens
 // Coin típus
 interface Coin {
   x: number;
@@ -153,6 +230,8 @@ interface Coin {
   value: number;
 }
 
+// ===== 🏆 ACHIEVEMENT SYSTEM =====
+// Jövőbeli AchievementSystem.tsx komponens
 // Achievement típus
 interface Achievement {
   id: string;
@@ -162,6 +241,8 @@ interface Achievement {
   icon: string;
 }
 
+// ===== 🌤️ BACKGROUND SYSTEM =====
+// Jövőbeli BackgroundRenderer.tsx komponens
 // Háttér objektumok (felhők, stb.)
 interface BackgroundObj {
   x: number;
@@ -171,6 +252,8 @@ interface BackgroundObj {
   speed: number;
 }
 
+// ===== 🐦 BIRD SYSTEM =====
+// Jövőbeli BirdRenderer.tsx és BirdSkinManager.tsx komponensek
 // Bird skin típusok
 interface BirdSkin {
   id: string;
@@ -223,12 +306,22 @@ interface BirdSkin {
   description: string;
 }
 
+// ===== 🏗️ MAIN GAME COMPONENT =====
+// Ez a nagy monolit komponens amit szét kell bontani
 export default function SzenyoMadar() {
+  // ===== 🔗 DOM REFERENCES =====
+  // Jövőbeli GameEngine.tsx komponensbe
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
+  
+  // ===== 🎮 GAME STATE HOOKS =====
+  // Jövőbeli GameStateManager.tsx komponensbe
   const [state, setState] = useState<typeof GameState[keyof typeof GameState]>(GameState.MENU);
   const [score, setScore] = useState(0);
+  
+  // ===== 🪙 CURRENCY & ACHIEVEMENT HOOKS =====
+  // Jövőbeli CoinSystem.tsx és AchievementSystem.tsx komponensekbe
   const [coins, setCoins] = useState<number>(() => {
     const v = localStorage.getItem("szenyo_madar_coins");
     return v ? parseInt(v, 10) : 0;
@@ -244,12 +337,20 @@ export default function SzenyoMadar() {
       { id: 'rainbow_rider', name: 'Szivárvány Lovas', description: 'Használd a rainbow mode-ot!', unlocked: false, icon: '🌈' }
     ];
   });
+  
+  // ===== 📊 SCORE & BEST HOOKS =====
+  // Jövőbeli ScoreSystem.tsx komponensbe
   const [best, setBest] = useState<number>(() => {
     const v = localStorage.getItem("szenyo_madar_best");
     return v ? parseInt(v, 10) : 0;
   });
+  
+  // ===== 🐛 DEBUG & DEVELOPMENT HOOKS =====
+  // Jövőbeli DebugPanel.tsx komponensbe
   const [debug, setDebug] = useState(false);
   
+  // ===== ⚙️ SETTINGS & CONFIGURATION HOOKS =====
+  // Jövőbeli SettingsManager.tsx komponensbe
   // Sebesség beállítások - játékban módosítható
   const [speedSettings, setSpeedSettings] = useState(() => {
     const saved = localStorage.getItem("szenyo_madar_speed_settings");
@@ -262,6 +363,8 @@ export default function SzenyoMadar() {
     };
   });
   
+  // ===== 📱 UI STATE HOOKS =====
+  // Jövőbeli UI komponensekbe (MenuScreen.tsx, SettingsPanel.tsx, stb.)
   // Beállítások menü megjelenítése
   const [showSettings, setShowSettings] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -269,18 +372,29 @@ export default function SzenyoMadar() {
   const [showBiomeSelector, setShowBiomeSelector] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
   const [consoleInput, setConsoleInput] = useState("");
+  
+  // ===== 🐦 BIRD CUSTOMIZATION HOOKS =====
+  // Jövőbeli BirdSkinManager.tsx komponensbe
   const [selectedBirdSkin, setSelectedBirdSkin] = useState<string>(() => {
     return localStorage.getItem("szenyo_madar_selected_skin") || "classic";
   });
+  
+  // ===== 🌍 BIOME SELECTION HOOKS =====
+  // Jövőbeli BiomeManager.tsx komponensbe
   const [startingBiome, setStartingBiome] = useState<number>(() => {
     const saved = localStorage.getItem("szenyo_madar_starting_biome");
     return saved ? parseInt(saved, 10) : 0;
   });
+  
+  // ===== 🎮 CONTROL SETTINGS HOOKS =====
+  // Jövőbeli ControlManager.tsx komponensbe
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
     const saved = localStorage.getItem("szenyo_madar_button_position");
     return (saved as 'left' | 'right') || 'left';
   });
 
+  // ===== 🚨 ERROR TRACKING HOOKS =====
+  // Jövőbeli ErrorTracker.tsx komponensbe
   // Error tracking and crash reporting
   const [gameErrors, setGameErrors] = useState<string[]>([]);
   const [lastError, setLastError] = useState<string>('');
