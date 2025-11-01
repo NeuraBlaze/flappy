@@ -10,6 +10,7 @@ interface BirdSkin {
     type: string;
     value: number;
   };
+  comingSoon?: boolean;
 }
 
 interface BirdSelectorProps {
@@ -55,26 +56,38 @@ const BirdSelector: React.FC<BirdSelectorProps> = ({
           {birdSkins.current.map(skin => {
             const isUnlocked = isSkinUnlocked(skin);
             const isSelected = selectedBirdSkin === skin.id;
+            const isComingSoon = skin.comingSoon;
             
             return (
               <button
                 key={skin.id}
-                onClick={() => isUnlocked && selectBirdSkin(skin.id)}
-                disabled={!isUnlocked}
+                onClick={() => !isComingSoon && isUnlocked && selectBirdSkin(skin.id)}
+                disabled={!isUnlocked || isComingSoon}
                 className={`p-3 rounded-lg border-2 transition-all ${
                   isSelected 
                     ? 'border-yellow-400 bg-yellow-900/50' 
+                    : isComingSoon
+                    ? 'border-purple-600 bg-purple-900/30 opacity-75 cursor-not-allowed'
                     : isUnlocked
                     ? 'border-gray-600 bg-gray-700 hover:border-gray-400 hover:bg-gray-600'
                     : 'border-gray-800 bg-gray-900 opacity-50 cursor-not-allowed'
                 }`}
               >
-                <div className="text-2xl mb-1">{isUnlocked ? skin.emoji : '🔒'}</div>
+                <div className="text-2xl mb-1">
+                  {isComingSoon ? '🔮' : isUnlocked ? skin.emoji : '🔒'}
+                </div>
                 <div className="text-sm font-bold">{skin.name}</div>
                 <div className="text-xs text-gray-300 mb-2">{skin.description}</div>
                 
+                {/* Coming Soon indicator */}
+                {isComingSoon && (
+                  <div className="text-xs text-purple-400 font-bold">
+                    🚧 Hamarosan... 🚧
+                  </div>
+                )}
+                
                 {/* Unlock requirement */}
-                {!isUnlocked && (
+                {!isUnlocked && !isComingSoon && (
                   <div className="text-xs text-red-400">
                     {skin.unlockRequirement.type === 'coins' && `${skin.unlockRequirement.value} érme`}
                     {skin.unlockRequirement.type === 'score' && `${skin.unlockRequirement.value} pont best`}
@@ -82,8 +95,8 @@ const BirdSelector: React.FC<BirdSelectorProps> = ({
                   </div>
                 )}
                 
-                {/* Abilities preview */}
-                {isUnlocked && Object.keys(skin.abilities).length > 0 && (
+                {/* Abilities preview - only for unlocked and non-coming-soon skins */}
+                {isUnlocked && !isComingSoon && Object.keys(skin.abilities).length > 0 && (
                   <div className="text-xs text-yellow-400 mt-1">
                     {Object.entries(skin.abilities).map(([key, value]) => (
                       <div key={key}>

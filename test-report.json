@@ -1,0 +1,88 @@
+{
+  "timestamp": "2025-11-01T10:35:03.901Z",
+  "duration": "11.51s",
+  "summary": {
+    "passed": 9,
+    "failed": 1,
+    "warnings": 0,
+    "total": 10
+  },
+  "results": [
+    {
+      "name": "File Existence",
+      "status": "PASS",
+      "message": "All 27 required files exist",
+      "details": {
+        "existingFiles": 27
+      }
+    },
+    {
+      "name": "Modules Structure",
+      "status": "PASS",
+      "message": "18 modules + 8 convenience hooks found",
+      "details": {
+        "individualModules": 18,
+        "convenienceHooks": 8
+      }
+    },
+    {
+      "name": "Vite Config",
+      "status": "PASS",
+      "message": "vite.config.ts exists and has content"
+    },
+    {
+      "name": "TypeScript Config",
+      "status": "PASS",
+      "message": "tsconfig.json exists and has content"
+    },
+    {
+      "name": "Tailwind Config",
+      "status": "PASS",
+      "message": "tailwind.config.js exists and has content"
+    },
+    {
+      "name": "Dependencies",
+      "status": "PASS",
+      "message": "All 4 critical dependencies found",
+      "details": {
+        "totalDeps": 11,
+        "criticalDeps": [
+          "react@^18.2.0",
+          "react-dom@^18.2.0",
+          "typescript@^5.2.2",
+          "vite@^5.0.8"
+        ]
+      }
+    },
+    {
+      "name": "Node Modules",
+      "status": "PASS",
+      "message": "node_modules directory exists"
+    },
+    {
+      "name": "Game Module Imports",
+      "status": "PASS",
+      "message": "No obvious syntax errors in module exports"
+    },
+    {
+      "name": "TypeScript Compilation",
+      "status": "FAIL",
+      "message": "TypeScript errors found",
+      "details": {
+        "errors": "src/App.tsx(1,1): error TS6133: 'React' is declared but its value is never read.\r\nsrc/application/GameOrchestrator.ts(69,11): error TS6133: 'transactionAdapter' is declared but its value is never read.\r\nsrc/application/GameOrchestrator.ts(73,11): error TS6133: 'gameStartTime' is declared but its value is never read.\r\nsrc/application/GameOrchestrator.ts(560,27): error TS6133: 'property' is declared but its value is never read.\r\nsrc/components/SzenyoMadar.tsx(1,8): error TS6133: 'React' is declared but its value is never read.\r\nsrc/components/SzenyoMadar.tsx(112,11): error TS6196: 'AnimationData' is declared but never used.\r\nsrc/components/SzenyoMadar.tsx(399,10): error TS6133: 'gameErrors' is declared but its value is never read.\r\nsrc/components/SzenyoMadar.tsx(753,9): error TS6133: 'safeExecute' is declared but its value is never read.\r\nsrc/components/SzenyoMadar.tsx(767,9): error TS6133: 'hasAbility' is declared but its value is never read.\r\nsrc/components/SzenyoMadarNew.tsx(307,9): error TS6133: 'inputManager' is declared but its value is never read.\r\nsrc/components/SzenyoMadarNew.tsx(314,17): error TS6133: 'key' is declared but its value is never read.\r\nsrc/components/SzenyoMadarNew.tsx(374,13): error TS6133: 'x' is declared but its value is never read.\r\nsrc/components/SzenyoMadarNew.tsx(374,24): error TS6133: 'y' is declared but its value is never read.\r\nsrc/components/SzenyoMadarNew.tsx(399,9): error TS6133: 'mathUtils' is declared but its value is never read.\r\nsrc/components/SzenyoMadarNew.tsx(414,46): error TS2345: Argument of type '() => 0 | undefined' is not assignable to parameter of type 'number | (() => number)'.\r\n  Type '() => 0 | undefined' is not assignable to type '() => number'.\r\n    Type 'number | undefined' is not assignable to type 'number'.\r\n      Type 'undefined' is not assignable to type 'number'.\r\nsrc/domains/shop/adapters.ts(268,20): error TS6133: 'itemId' is declared but its value is never read.\r\nsrc/domains/shop/models.ts(11,3): error TS6133: 'PurchaseResult' is declared but its value is never read.\r\nsrc/domains/shop/models.ts(12,3): error TS6133: 'TransactionResult' is declared but its value is never read.\r\nsrc/domains/shop/models.ts(16,3): error TS6133: 'ItemEffect' is declared but its value is never read.\r\nsrc/domains/shop/models.ts(124,27): error TS6133: 'category' is declared but its value is never read.\r\nsrc/game-modules/CollisionManager.tsx(116,3): error TS6133: 'worldBounds' is declared but its value is never read.\r\nsrc/game-modules/ObstacleManager.tsx(12,27): error TS6133: 'CollisionShape' is declared but its value is never read.\r\nsrc/game-modules/RenderManager.tsx(247,3): error TS6133: 'worldParams' is declared but its value is never read.\r\nsrc/game-modules/RenderManager.tsx(248,3): error TS6133: 'worldBounds' is declared but its value is never read.\r\n"
+      }
+    },
+    {
+      "name": "Build Process",
+      "status": "PASS",
+      "message": "Build completed successfully",
+      "details": {
+        "distFiles": 3,
+        "hasIndex": true,
+        "hasAssets": true,
+        "indexSize": "0.84 KB",
+        "assetFiles": []
+      }
+    }
+  ]
+}

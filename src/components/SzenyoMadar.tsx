@@ -304,6 +304,7 @@ interface BirdSkin {
     hornCooldown?: number; // Szarv cooldown (sec)
   };
   description: string;
+  comingSoon?: boolean; // Ha true, akkor "Hamarosan" státusz
 }
 
 // ===== 🏗️ MAIN GAME COMPONENT =====
@@ -499,7 +500,8 @@ export default function SzenyoMadar() {
       wingColor: "#FF0000",
       unlockRequirement: { type: "score", value: 666 },
       abilities: { lifeSteal: true, darkAura: 50, shadowTeleport: 3, extraLives: 1 },
-      description: "Sötét erők: életlopás és árnyék teleport!"
+      description: "Hamarosan...",
+      comingSoon: true
     },
     {
       id: "lightning",
@@ -509,7 +511,8 @@ export default function SzenyoMadar() {
       wingColor: "#00BFFF",
       unlockRequirement: { type: "achievement", value: "power_user" },
       abilities: { lightningStrike: 10, electricField: true, chainLightning: 3, jumpPower: 1.1 },
-      description: "Villámgyors pusztítás elektromos erőkkel!"
+      description: "Hamarosan...",
+      comingSoon: true
     },
     {
       id: "super",
@@ -519,7 +522,8 @@ export default function SzenyoMadar() {
       wingColor: "#0000FF",
       unlockRequirement: { type: "coins", value: 500 },
       abilities: { flyThroughWalls: 5, superStrength: true, laserVision: true, extraLives: 2 },
-      description: "Szupererők: átrepülés és lézer látás!"
+      description: "Hamarosan...",
+      comingSoon: true
     },
     {
       id: "ufo",
@@ -549,7 +553,8 @@ export default function SzenyoMadar() {
       wingColor: "#DDA0DD",
       unlockRequirement: { type: "coins", value: 300 },
       abilities: { magicHorn: true, hornCooldown: 20, shieldDuration: 1.5, jumpPower: 1.2 },
-      description: "Mágikus szarv 20 másodpercenként áttöri az akadályokat!"
+      description: "Hamarosan...",
+      comingSoon: true
     }
   ]);
 
@@ -673,6 +678,9 @@ export default function SzenyoMadar() {
 
   // Helper: Check if skin is unlocked
   const isSkinUnlocked = useCallback((skin: BirdSkin) => {
+    // Coming soon skins are never unlocked
+    if (skin.comingSoon) return false;
+    
     switch (skin.unlockRequirement.type) {
       case 'coins':
         return coins >= (skin.unlockRequirement.value as number);
@@ -694,7 +702,7 @@ export default function SzenyoMadar() {
   // Helper: Select bird skin
   const selectBirdSkin = useCallback((skinId: string) => {
     const skin = birdSkins.current.find(s => s.id === skinId);
-    if (skin && isSkinUnlocked(skin)) {
+    if (skin && isSkinUnlocked(skin) && !skin.comingSoon) {
       setSelectedBirdSkin(skinId);
       localStorage.setItem("szenyo_madar_selected_skin", skinId);
     }
@@ -773,6 +781,27 @@ export default function SzenyoMadar() {
       return false;
     }
   }, [getCurrentBirdSkin, logError]);
+
+  // Initialize bird with selected skin abilities on component mount
+  useEffect(() => {
+    const currentSkin = getCurrentBirdSkin();
+    const extraLives = currentSkin?.abilities.extraLives || 0;
+    
+    // Update bird abilities based on selected skin
+    bird.current.lives = 1 + extraLives;
+    bird.current.maxLives = 1 + extraLives;
+    bird.current.autoShieldTimer = currentSkin?.abilities.autoShield ? (currentSkin.abilities.autoShield * 60) : 0;
+    bird.current.canShoot = currentSkin?.abilities.canShoot || false;
+    bird.current.shadowTeleportsLeft = currentSkin?.abilities?.shadowTeleport ?? 0;
+    bird.current.darkAuraActive = Boolean(currentSkin?.abilities?.darkAura);
+    bird.current.pixelModeActive = Boolean(currentSkin?.abilities?.pixelMode);
+    bird.current.powerUpMagnetActive = Boolean(currentSkin?.abilities?.powerUpMagnet);
+    
+    console.log(`🐦 Bird initialized with skin: ${currentSkin.name}`, {
+      lives: bird.current.lives,
+      abilities: currentSkin.abilities
+    });
+  }, []); // Empty dependency array - only run once on mount
 
   // Helper: Handle console commands
   const handleConsoleCommand = useCallback((command: string) => {
@@ -1012,10 +1041,9 @@ export default function SzenyoMadar() {
         `• performance/perf - Teljesítmény adatok\n` +
         `• errorlog - Hibák megjelenítése\n` +
         `• clearerrors - Hibák törlése\n\n` +
-        `🎁 CHEAT KÓDOK:\n` +
-        `• szeretlekmario - Minden feloldása\n` +
-        `• dracarys, area51, gamer, unicorn - Érmék\n` +
-        `• thunderstorm, superhero - High score`;
+        `🎁 TITKOS FUNKCIÓK:\n` +
+        `• Léteznek rejtett parancsok... 🤫\n` +
+        `• Használd a kreativitásod hogy megtaláld őket! 💡`;
       alert(helpText);
       setShowConsole(false);
       setConsoleInput("");
@@ -3868,7 +3896,7 @@ export default function SzenyoMadar() {
     }
     
     ctx.restore();
-  }, [debug]);
+  }, [debug, getCurrentBirdSkin]);
 
   // Fő game loop - 60 FPS standardizálva
   const gameLoop = useCallback((now: number) => {
