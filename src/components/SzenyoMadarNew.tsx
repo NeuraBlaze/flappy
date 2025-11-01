@@ -1,4 +1,76 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+
+// ===== 🔧 PHASE 4 UTILITY HOOKS IMPORT =====
+import { 
+  useInputManager, 
+  usePerformanceManager, 
+  useStorageManager, 
+  useErrorTracker, 
+  useMathUtils 
+} from '../utils';
+
+/**
+ * ========================================
+ * MONOLIT KÓD KOMPONENS SZÉTBONTÁSI TERV
+ * ========================================
+ * 
+ * JÖVŐBELI KOMPONENSEK FELCÍMKÉZÉSE:
+ * 
+ * 🏗️ CORE SYSTEM COMPONENTS:
+ * - GameEngine.tsx        - Fő játék logika és loop
+ * - PhysicsEngine.tsx     - Fizika számítások (gravitáció, ütközés)
+ * - RenderEngine.tsx      - Canvas renderelés és optimalizáció
+ * 
+ * 🎮 GAME LOGIC COMPONENTS:
+ * - GameStateManager.tsx  - Játék állapot kezelés (menu, run, pause, gameover)
+ * - PlayerController.tsx  - Input kezelés és madár vezérlés
+ * - CollisionDetector.tsx - Ütközés detektálás és fizika
+ * 
+ * 🌍 ENVIRONMENT COMPONENTS:
+ * - BiomeManager.tsx      - Biome rendszer és váltás
+ * - WeatherSystem.tsx     - Időjárás effektek
+ * - BackgroundRenderer.tsx- Háttér és parallax scrolling
+ * 
+ * 🚧 OBSTACLE COMPONENTS:
+ * - ObstacleManager.tsx   - Akadályok spawn és kezelés
+ * - PipeRenderer.tsx      - Csövek renderelése
+ * - ObstacleRenderer.tsx  - Különféle akadályok (fa, épület)
+ * 
+ * 💫 EFFECT COMPONENTS:
+ * - ParticleSystem.tsx    - Részecske effektek
+ * - PowerUpManager.tsx    - Power-up spawn és logika
+ * - CoinSystem.tsx        - Érme rendszer
+ * 
+ * 🎨 UI COMPONENTS:
+ * - GameUI.tsx           - Fő játék felület
+ * - MenuScreen.tsx       - Főmenü
+ * - GameOverScreen.tsx   - Game over képernyő
+ * - SettingsPanel.tsx    - Beállítások
+ * - ScoreDisplay.tsx     - Pontszám kijelző
+ * - DebugPanel.tsx       - Debug információk
+ * 
+ * 🐦 CHARACTER COMPONENTS:
+ * - BirdRenderer.tsx     - Madár renderelés és animáció
+ * - BirdSkinManager.tsx  - Skin rendszer
+ * - BirdAbilities.tsx    - Madár képességek
+ * 
+ * 🏪 SHOP COMPONENTS:
+ * - ShopSystem.tsx       - Bolt rendszer
+ * - AchievementSystem.tsx- Achievement rendszer
+ * - InventoryManager.tsx - Inventory kezelés
+ * 
+ * ⚡ PERFORMANCE COMPONENTS:
+ * - PerformanceManager.tsx- Teljesítmény optimalizáció
+ * - ConfigManager.tsx    - Konfigurációs beállítások
+ * 
+ * 💾 DATA COMPONENTS:
+ * - SaveSystem.tsx       - Mentés/betöltés
+ * - LocalStorageManager.tsx- LocalStorage kezelés
+ * 
+ * 🔊 AUDIO COMPONENTS:
+ * - AudioManager.tsx     - Hang effektek és zene
+ * - SoundPlayer.tsx      - Hang lejátszás
+ */
 
 /**
  * Szenyo-madár – egy Flappy Bird jellegű mini‑game
@@ -12,6 +84,8 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
  * • Egyedi elemek: részecske effektek, power-upok, változatos akadályok
  */
 
+// ===== 🎮 GAME STATE MANAGEMENT =====
+// Jövőbeli GameStateManager.tsx komponens
 // Játék állapot enum
 const GameState = {
   MENU: "menu",
@@ -20,32 +94,22 @@ const GameState = {
   PAUSE: "pause",
 } as const;
 
+// ===== 🌍 BIOME & ENVIRONMENT SYSTEM =====
+// Jövőbeli BiomeManager.tsx komponens
 // Biome típusok
 interface Biome {
-  id: 'forest' | 'city' | 'space'; // ocean ideiglenesen eltávolítva
+  id: 'forest' | 'city'; // space és ocean eltávolítva mert nem működnek
   name: string;
   backgroundColors: string[];
-  obstacleTypes: ('pipe' | 'tree' | 'building' | 'asteroid' | 'satellite' | 'coral' | 'shipwreck')[];
-  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog' | 'aurora' | 'current' | 'storm')[];
+  obstacleTypes: ('pipe' | 'tree' | 'building')[];
+  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog')[];
   powerUpBonus: number; // power-up spawn rate multiplier
   musicTheme: string;
   particleColor: string;
 }
 
-// Sprite rendszer
-interface SpriteFrame {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface AnimationData {
-  frames: SpriteFrame[];
-  frameRate: number;
-  loop: boolean;
-}
-
+// ===== ⚡ PERFORMANCE MANAGEMENT SYSTEM =====
+// Jövőbeli PerformanceManager.tsx komponens
 // Particle típusok
 // Kiegyensúlyozott teljesítmény optimalizáció konstansok
 const PERFORMANCE_CONFIG = {
@@ -123,6 +187,8 @@ const getPerfConfig = () => {
   return PERFORMANCE_CONFIG[level as keyof typeof PERFORMANCE_CONFIG];
 };
 
+// ===== 💫 PARTICLE SYSTEM =====
+// Jövőbeli ParticleSystem.tsx komponens
 interface Particle {
   x: number;
   y: number;
@@ -132,9 +198,11 @@ interface Particle {
   maxLife: number;
   color: string;
   size: number;
-  type?: 'rain' | 'snow' | 'fog' | 'sparkle' | 'explosion' | 'trail' | 'aurora';
+  type?: 'rain' | 'snow' | 'fog' | 'sparkle' | 'explosion' | 'trail';
 }
 
+// ===== 💎 POWER-UP SYSTEM =====
+// Jövőbeli PowerUpManager.tsx komponens
 // Power-up típusok
 interface PowerUp {
   x: number;
@@ -144,6 +212,8 @@ interface PowerUp {
   animTime: number;
 }
 
+// ===== 🪙 COIN SYSTEM =====
+// Jövőbeli CoinSystem.tsx komponens
 // Coin típus
 interface Coin {
   x: number;
@@ -153,6 +223,8 @@ interface Coin {
   value: number;
 }
 
+// ===== 🏆 ACHIEVEMENT SYSTEM =====
+// Jövőbeli AchievementSystem.tsx komponens
 // Achievement típus
 interface Achievement {
   id: string;
@@ -162,6 +234,8 @@ interface Achievement {
   icon: string;
 }
 
+// ===== 🌤️ BACKGROUND SYSTEM =====
+// Jövőbeli BackgroundRenderer.tsx komponens
 // Háttér objektumok (felhők, stb.)
 interface BackgroundObj {
   x: number;
@@ -171,6 +245,8 @@ interface BackgroundObj {
   speed: number;
 }
 
+// ===== 🐦 BIRD SYSTEM =====
+// Jövőbeli BirdRenderer.tsx és BirdSkinManager.tsx komponensek
 // Bird skin típusok
 interface BirdSkin {
   id: string;
@@ -223,19 +299,128 @@ interface BirdSkin {
   description: string;
 }
 
+// ===== 🏗️ MAIN GAME COMPONENT =====
+// Ez a nagy monolit komponens amit szét kell bontani
 export default function SzenyoMadar() {
+  // ===== � PHASE 4 UTILITY HOOKS =====
+  // Advanced system hooks for modular architecture
+  const inputManager = useInputManager({
+    enableKeyboard: true,
+    enableMouse: true,
+    enableTouch: true,
+    enableGestures: true,
+    preventDefault: true
+  }, {
+    onKeyDown: (key: string, event: KeyboardEvent) => {
+      // Ha a konzol nyitva van, ne akadályozzuk meg a billentyűzet használatát
+      if (showConsole) {
+        return; // Engedjük át minden billentyűt a konzolhoz
+      }
+      
+      const b = bird.current;
+      const currentSkin = birdSkins.current.find(skin => skin.id === selectedBirdSkin);
+      
+      switch (event.code) {
+        case 'Space':
+        case 'ArrowUp':
+          event.preventDefault();
+          flap();
+          break;
+        case 'KeyX':
+        case 'KeyS':
+          event.preventDefault();
+          shoot();
+          break;
+        case 'KeyQ': // Demon Bird - Shadow Teleport
+          event.preventDefault();
+          if (currentSkin?.abilities.shadowTeleport && b.shadowTeleportsLeft > 0) {
+            b.shadowTeleportsLeft--;
+            b.y = Math.max(50, Math.min(world.current.h - 50, Math.random() * world.current.h));
+            createParticles(b.x, b.y, 15, '#8B0000', 'explosion');
+            playSound(400, 0.3, 'powerup');
+          }
+          break;
+        case 'KeyE': // Super Bird - Wall Phase
+          event.preventDefault();
+          if (currentSkin?.abilities.flyThroughWalls && b.wallPhaseLeft > 0) {
+            b.wallPhaseLeft = Math.min(b.wallPhaseLeft, 180); // 3 seconds max
+            b.wallPhaseActive = true;
+            createParticles(b.x, b.y, 10, '#0080FF', 'sparkle');
+            playSound(600, 0.2, 'powerup');
+          }
+          break;
+        case 'KeyF': // UFO Bird - Warp Speed
+          event.preventDefault();
+          if (currentSkin?.abilities.warpSpeed && b.warpJumpsLeft > 0) {
+            b.warpJumpsLeft--;
+            b.x += 150; // Quick forward movement
+            createParticles(b.x, b.y, 12, '#00FF00', 'trail');
+            playSound(800, 0.2, 'powerup');
+          }
+          break;
+        case 'KeyP':
+          togglePause();
+          break;
+        case 'KeyR':
+          if (state === GameState.GAMEOVER) restart();
+          break;
+        case 'KeyD':
+          setDebug(d => !d);
+          break;
+        default:
+          break;
+      }
+    },
+    onTap: (x: number, y: number) => {
+      // Touch/click handling - trigger flap
+      flap();
+    }
+  });
+  
+  const performanceManager = usePerformanceManager({
+    targetFPS: 60,
+    autoAdjustQuality: true,
+    defaultQuality: 'high',
+    enableMonitoring: true
+  });
+  
+  const storageManager = useStorageManager({
+    namespace: 'szenyo_madar',
+    version: '1.0.0',
+    autoSave: true,
+    enableBackup: true
+  });
+  
+  const errorTracker = useErrorTracker({
+    enableLogging: true,
+    enableCrashReporting: true
+  });
+  
+  const mathUtils = useMathUtils();
+
+  // ===== �🔗 DOM REFERENCES =====
+  // Jövőbeli GameEngine.tsx komponensbe
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
+  
+  // ===== 🎮 GAME STATE HOOKS =====
+  // Jövőbeli GameStateManager.tsx komponensbe
   const [state, setState] = useState<typeof GameState[keyof typeof GameState]>(GameState.MENU);
   const [score, setScore] = useState(0);
+  
+  // ===== 🪙 CURRENCY & ACHIEVEMENT HOOKS =====
+  // Jövőbeli CoinSystem.tsx és AchievementSystem.tsx komponensekbe
   const [coins, setCoins] = useState<number>(() => {
-    const v = localStorage.getItem("szenyo_madar_coins");
-    return v ? parseInt(v, 10) : 0;
+    return storageManager.load("coins", 0);
   });
   const [achievements, setAchievements] = useState<Achievement[]>(() => {
-    const saved = localStorage.getItem("szenyo_madar_achievements");
-    return saved ? JSON.parse(saved) : [
+    const loadedAchievements = storageManager.loadAchievements();
+    if (loadedAchievements.length > 0) {
+      return loadedAchievements;
+    }
+    // Default achievements if none found
+    return [
       { id: 'first_flight', name: 'Első Repülés', description: 'Repülj először!', unlocked: false, icon: '🐣' },
       { id: 'coin_collector', name: 'Érme Gyűjtő', description: 'Gyűjts 50 érmét!', unlocked: false, icon: '💰' },
       { id: 'high_flyer', name: 'Magas Repülő', description: 'Érj el 20 pontot!', unlocked: false, icon: '🚀' },
@@ -244,12 +429,19 @@ export default function SzenyoMadar() {
       { id: 'rainbow_rider', name: 'Szivárvány Lovas', description: 'Használd a rainbow mode-ot!', unlocked: false, icon: '🌈' }
     ];
   });
+  
+  // ===== 📊 SCORE & BEST HOOKS =====
+  // Jövőbeli ScoreSystem.tsx komponensbe
   const [best, setBest] = useState<number>(() => {
-    const v = localStorage.getItem("szenyo_madar_best");
-    return v ? parseInt(v, 10) : 0;
+    return storageManager.load<number>("best", 0) || 0;
   });
+  
+  // ===== 🐛 DEBUG & DEVELOPMENT HOOKS =====
+  // Jövőbeli DebugPanel.tsx komponensbe
   const [debug, setDebug] = useState(false);
   
+  // ===== ⚙️ SETTINGS & CONFIGURATION HOOKS =====
+  // Jövőbeli SettingsManager.tsx komponensbe
   // Sebesség beállítások - játékban módosítható
   const [speedSettings, setSpeedSettings] = useState(() => {
     const saved = localStorage.getItem("szenyo_madar_speed_settings");
@@ -262,6 +454,8 @@ export default function SzenyoMadar() {
     };
   });
   
+  // ===== 📱 UI STATE HOOKS =====
+  // Jövőbeli UI komponensekbe (MenuScreen.tsx, SettingsPanel.tsx, stb.)
   // Beállítások menü megjelenítése
   const [showSettings, setShowSettings] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -269,20 +463,31 @@ export default function SzenyoMadar() {
   const [showBiomeSelector, setShowBiomeSelector] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
   const [consoleInput, setConsoleInput] = useState("");
+  
+  // ===== 🐦 BIRD CUSTOMIZATION HOOKS =====
+  // Jövőbeli BirdSkinManager.tsx komponensbe
   const [selectedBirdSkin, setSelectedBirdSkin] = useState<string>(() => {
     return localStorage.getItem("szenyo_madar_selected_skin") || "classic";
   });
+  
+  // ===== 🌍 BIOME SELECTION HOOKS =====
+  // Jövőbeli BiomeManager.tsx komponensbe
   const [startingBiome, setStartingBiome] = useState<number>(() => {
     const saved = localStorage.getItem("szenyo_madar_starting_biome");
     return saved ? parseInt(saved, 10) : 0;
   });
+  
+  // ===== 🎮 CONTROL SETTINGS HOOKS =====
+  // Jövőbeli ControlManager.tsx komponensbe
   const [buttonPosition, setButtonPosition] = useState<'left' | 'right'>(() => {
     const saved = localStorage.getItem("szenyo_madar_button_position");
     return (saved as 'left' | 'right') || 'left';
   });
 
+  // ===== 🚨 ERROR TRACKING HOOKS =====
+  // Jövőbeli ErrorTracker.tsx komponensbe
   // Error tracking and crash reporting
-  const [gameErrors, setGameErrors] = useState<string[]>([]);
+  const [, setGameErrors] = useState<string[]>([]);
   const [lastError, setLastError] = useState<string>('');
   const errorLogRef = useRef<Array<{
     timestamp: string;
@@ -443,8 +648,8 @@ export default function SzenyoMadar() {
   const world = useRef({
     w: 320, // világ szélesség (logikai px)
     h: 480, // világ magasság
-    gravity: 0.125, // Tudományos fizika: 5.6*H/s² → 5.6*480/(60*60) ≈ 0.075 
-    jump: -12.6, // 1.57*H/s → 1.57*480/60 ≈ -12.6
+    gravity: 0.119, // 5%-kal kevesebb gravitáció (volt: 0.125)
+    jump: -3.83, // 10%-kal gyengébb ugrás (volt: -4.25)
     speed: 1.0, // lassabb sebesség
     gap: 110, // még nagyobb rés
     pipeW: 40,
@@ -513,9 +718,8 @@ export default function SzenyoMadar() {
     wallPhaseActive: false, // fal áthatolás állapot
   });
 
-  // Valós FPS monitoring - mutatja a tényleges renderelési sebességet
+  // Valós FPS monitoring - performanceManager-rel kezelve
   const [fps, setFps] = useState(60);
-  const fpsCounter = useRef({ frames: 0, lastTime: performance.now() });
 
   // Akadályok (csövek / háztömbök)
   const pipes = useRef<{ x: number; top: number; passed: boolean; type: string; biome: string }[]>([]);
@@ -598,67 +802,22 @@ export default function SzenyoMadar() {
     localStorage.setItem("szenyo_madar_button_position", position);
   }, []);
 
-  // Error logging and crash reporting system
+  // Error logging - átmozgatva errorTracker-be
   const logError = useCallback((error: string, additionalInfo?: any) => {
-    const timestamp = new Date().toISOString();
     const currentSkin = getCurrentBirdSkin();
     
-    const errorEntry = {
-      timestamp,
-      error,
-      birdSkin: currentSkin.id,
+    errorTracker.logError(error, {
       gameState: state.toString(),
       score,
+      birdSkin: currentSkin.id,
       biome: currentBiome.current.id,
       abilities: currentSkin.abilities,
-      additionalInfo,
-      stackTrace: new Error().stack
-    };
+      additionalInfo
+    }, 'error', 'game');
     
-    errorLogRef.current.push(errorEntry);
     setGameErrors(prev => [...prev, error]);
     setLastError(error);
-    
-    // Save to localStorage for persistence
-    localStorage.setItem("szenyo_madar_error_log", JSON.stringify(errorLogRef.current.slice(-10))); // Keep last 10 errors
-    
-    console.error('🚨 Flappy Bird Crash Report:', errorEntry);
-    
-    // Auto-upload to GitHub (simulate crash report)
-    setTimeout(() => {
-      console.log('📤 Crash report would be auto-uploaded:', {
-        gameVersion: '1.0.0',
-        userAgent: navigator.userAgent,
-        timestamp,
-        errorDetails: errorEntry
-      });
-    }, 1000);
-  }, [getCurrentBirdSkin, state, score]);
-
-  // Safe wrapper for dangerous operations
-  const safeExecute = useCallback((operation: () => void, operationName: string) => {
-    try {
-      operation();
-    } catch (error) {
-      logError(`${operationName} failed: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-        operationName,
-        bird: bird.current,
-        pipes: pipes.current.length,
-        powerUps: powerUps.current.length
-      });
-    }
-  }, [logError]);
-
-  // Safe ability checker
-  const hasAbility = useCallback((abilityName: string): boolean => {
-    try {
-      const currentSkin = getCurrentBirdSkin();
-      return Boolean(currentSkin?.abilities?.[abilityName as keyof typeof currentSkin.abilities]);
-    } catch (error) {
-      logError(`Ability check failed for ${abilityName}`, error);
-      return false;
-    }
-  }, [getCurrentBirdSkin, logError]);
+  }, [errorTracker, getCurrentBirdSkin, state, score]);
 
   // Helper: Handle console commands
   const handleConsoleCommand = useCallback((command: string) => {
@@ -914,7 +1073,7 @@ export default function SzenyoMadar() {
 
   // Weather rendszer
   const weather = useRef({
-    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog' | 'aurora' | 'current' | 'storm',
+    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog',
     intensity: 0,
     particles: [] as Particle[]
   });
@@ -940,18 +1099,7 @@ export default function SzenyoMadar() {
       powerUpBonus: 1.0,
       musicTheme: 'urban',
       particleColor: '#00FFFF'
-    },
-    {
-      id: 'space',
-      name: 'Galaktikus Űr',
-      backgroundColors: ['#0B0B1F', '#1A1A3E', '#2E2E5F'],
-      obstacleTypes: ['pipe', 'asteroid'], // pipe = űrállomás csövek, asteroid = valódi aszteroidák
-      weatherTypes: ['clear', 'aurora'],
-      powerUpBonus: 1.5,
-      musicTheme: 'cosmic',
-      particleColor: '#9966FF'
     }
-    // Ocean biome ideiglenesen eltávolítva - problémát okoz a robot madár pajzs rendszerrel
   ]);
 
   // Initialize current biome with the selected starting biome - use useEffect to ensure proper initialization
@@ -1183,47 +1331,6 @@ export default function SzenyoMadar() {
             color: '#CCCCCC',
             size: 15 + Math.random() * 25,
             type: 'fog'
-          };
-          break;
-        case 'aurora':
-          particle = {
-            x: Math.random() * w.w,
-            y: Math.random() * (w.h * 0.4),
-            vx: 0,
-            vy: 0,
-            life: 400,
-            maxLife: 400,
-            color: ['#FF69B4', '#00FFFF', '#ADFF2F', '#9370DB'][Math.floor(Math.random() * 4)],
-            size: 30 + Math.random() * 40,
-            type: 'aurora' as any
-          };
-          break;
-        case 'current':
-          // Óceáni áramlatok - buborékok és tengeri részecskék
-          particle = {
-            x: -10,
-            y: Math.random() * w.h,
-            vx: 1 + Math.random() * 3,
-            vy: Math.sin(Math.random() * Math.PI * 2) * 0.5,
-            life: 300,
-            maxLife: 300,
-            color: ['#00BFFF', '#87CEEB', '#B0E0E6', '#ADD8E6'][Math.floor(Math.random() * 4)],
-            size: 3 + Math.random() * 8,
-            type: 'sparkle' as any
-          };
-          break;
-        case 'storm':
-          // Óceáni vihar - sötét buborékok és vízi forgók
-          particle = {
-            x: Math.random() * w.w,
-            y: Math.random() * w.h,
-            vx: Math.random() * 4 - 2,
-            vy: Math.random() * 2 + 1,
-            life: 200,
-            maxLife: 200,
-            color: ['#2F4F4F', '#708090', '#778899', '#696969'][Math.floor(Math.random() * 4)],
-            size: 5 + Math.random() * 12,
-            type: 'explosion' as any
           };
           break;
         default:
@@ -1600,14 +1707,11 @@ export default function SzenyoMadar() {
       
       time.current.frameCount++;
       
-      // Valós FPS számítás - mutatja a tényleges render sebességet
-      fpsCounter.current.frames++;
-    const currentTime = performance.now();
-    if (currentTime - fpsCounter.current.lastTime >= 1000) {
-      setFps(fpsCounter.current.frames);
-      fpsCounter.current.frames = 0;
-      fpsCounter.current.lastTime = currentTime;
-    }
+      // Valós FPS számítás - performanceManager-rel
+      const deltaTime = Date.now() - time.current.last;
+      performanceManager.updateFPS(deltaTime);
+      const fpsData = performanceManager.getFPSData();
+      setFps(Math.round(fpsData.current));
     
     // Madár fizika és animáció - skin abilities (fix 60 FPS)
     const currentSkin = getCurrentBirdSkin();
@@ -2094,24 +2198,6 @@ export default function SzenyoMadar() {
       case 'fog':
         colors = colors.map(c => desaturateColor(c, 0.5));
         break;
-      case 'aurora':
-        // Keep original colors but add aurora effects later
-        break;
-      case 'current':
-        // Óceáni áramlatok - kék színek hangsúlyozása
-        colors = colors.map(c => {
-          const num = parseInt(c.replace("#", ""), 16);
-          const r = Math.max(0, (num >> 16) - 50);
-          const g = Math.min(255, ((num >> 8) & 0x00FF) + 30);
-          const b = Math.min(255, (num & 0x0000FF) + 80);
-          return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-        });
-        break;
-      case 'storm':
-        // Óceáni vihar - sötétebb, zavarosabb víz
-        colors = colors.map(c => darkenColor(c, 0.4));
-        colors = colors.map(c => desaturateColor(c, 0.3));
-        break;
       default:
         // Use original biome colors
         break;
@@ -2583,110 +2669,38 @@ export default function SzenyoMadar() {
           }
           break;
           
-        /*
         case 'coral':
           // Korallzátony akadályok - víz alatti világ
-          // IDEIGLENESEN KIKOMMENTEZVE - okoz problémát a robot pajzs rendszerrel
-          break;
-        
-        case 'shipwreck':
-          // Hajóroncs akadályok - elsüllyedt hajó részei
-          // IDEIGLENESEN KIKOMMENTEZVE - okoz problémát a robot pajzs rendszerrel
-          break;
-        */
+          ctx.save();
           
-        default: // Classic pipe vagy ismeretlen típus
-          if (pipe.biome === 'space') {
-            // Űr biome esetén ismeretlen akadály típus alapértelmezett megjelenése
-            ctx.fillStyle = '#4B0082';
-            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
-            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+          // Felső korall formáció
+          ctx.translate(pipe.x + w.pipeW/2, pipe.top - 20);
+          
+          // Korall alapszín - élénk színek
+          const coralColors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
+          const primaryColor = coralColors[Math.floor(pipe.x * 0.01) % coralColors.length];
+          
+          ctx.fillStyle = primaryColor;
+          
+          // Főkorall struktúra
+          for (let i = 0; i < 5; i++) {
+            const branchHeight = 25 + Math.sin(time.current.frameCount * 0.03 + i + pipe.x * 0.01) * 8;
+            const branchWidth = 8 + Math.cos(time.current.frameCount * 0.02 + i * 1.5) * 3;
+            const x = (i - 2) * 12 + Math.sin(time.current.frameCount * 0.04 + i) * 4;
             
-            // Energia aura
-            ctx.strokeStyle = '#9400D3';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(pipe.x - 1, 0, w.pipeW + 2, pipe.top);
-            ctx.strokeRect(pipe.x - 1, pipe.top + w.gap, w.pipeW + 2, w.h - w.groundH - pipe.top - w.gap);
-          } else {
-            // Klasszikus zöld cső más biome-okhoz
-            ctx.fillStyle = '#228B22';
-            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
-            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+            // Korall ág
+            ctx.beginPath();
+            ctx.ellipse(x, -branchHeight/2, branchWidth/2, branchHeight/2, 0, 0, Math.PI * 2);
+            ctx.fill();
             
-            // Cső sapka
-            ctx.fillStyle = '#32CD32';
-            ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
-            ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
+            // Korall részletek
+            ctx.fillStyle = primaryColor === '#FF6B6B' ? '#FF9999' : '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(x - 3, -branchHeight/2 - 5, 2, 0, Math.PI * 2);
+            ctx.arc(x + 3, -branchHeight/2 + 3, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = primaryColor;
           }
-      }
-      
-      // Debug hitbox
-      if (debug) {
-        ctx.strokeStyle = '#FF0000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
-        ctx.strokeRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-      }
-    });
-    
-    // Power-upok
-    powerUps.current.forEach(powerUp => {
-      if (!powerUp.collected) {
-        const pulse = Math.sin(powerUp.animTime * 0.1) * 0.2 + 1;
-        ctx.save();
-        ctx.translate(powerUp.x, powerUp.y);
-        ctx.scale(pulse, pulse);
-        
-        switch (powerUp.type) {
-          case 'shield':
-            ctx.fillStyle = '#00BFFF';
-            ctx.beginPath();
-            ctx.arc(0, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('🛡', -6, 4);
-            break;
-          case 'slow':
-            ctx.fillStyle = '#FFD700';
-            ctx.beginPath();
-            ctx.arc(0, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#000000';
-            ctx.fillText('⏰', -6, 4);
-            break;
-          case 'score':
-            ctx.fillStyle = '#FF6347';
-            ctx.beginPath();
-            ctx.arc(0, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('⭐', -6, 4);
-            break;
-          case 'magnet':
-            ctx.fillStyle = '#FF69B4';
-            ctx.beginPath();
-            ctx.arc(0, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('🧲', -6, 4);
-            break;
-          case 'double':
-            ctx.fillStyle = '#32CD32';
-            ctx.beginPath();
-            ctx.arc(0, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('2️⃣', -6, 4);
-            break;
-          case 'rainbow':
-            ctx.fillStyle = '#9370DB';
-            ctx.beginPath();
-            ctx.arc(0, 0, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('🌈', -6, 4);
-            break;
-        }
           
           // Tengeri növények
           ctx.fillStyle = '#228B22';
@@ -2892,10 +2906,19 @@ export default function SzenyoMadar() {
             
             ctx.beginPath();
             ctx.moveTo(lowerAlgaeX, lowerAlgaeY);
-    
-    // Madár
-    
-    // Madár
+            for (let j = 1; j <= algaeHeight; j += 2) {
+              const wave = Math.sin(j * 0.3 + time.current.frameCount * 0.05 + i) * 3;
+              ctx.lineTo(lowerAlgaeX + wave, lowerAlgaeY - j);
+            }
+            ctx.stroke();
+          }
+          break;
+          
+        case 'shipwreck':
+          // Hajóroncs akadályok - elsüllyedt hajó részei
+          
+          // Felső hajórész - kapitányi híd
+          ctx.save();
           ctx.translate(pipe.x, pipe.top - 30);
           
           // Rozsdás barna szín
@@ -3209,11 +3232,40 @@ export default function SzenyoMadar() {
             ctx.stroke();
           }
           break;
-    
-    // Debug hitbox
-    if (debug) {
-      // Debug info will be shown in proper pipe rendering context  
-    }
+          
+        default: // Classic pipe vagy ismeretlen típus
+          if (pipe.biome === 'space') {
+            // Űr biome esetén ismeretlen akadály típus alapértelmezett megjelenése
+            ctx.fillStyle = '#4B0082';
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+            
+            // Energia aura
+            ctx.strokeStyle = '#9400D3';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(pipe.x - 1, 0, w.pipeW + 2, pipe.top);
+            ctx.strokeRect(pipe.x - 1, pipe.top + w.gap, w.pipeW + 2, w.h - w.groundH - pipe.top - w.gap);
+          } else {
+            // Klasszikus zöld cső más biome-okhoz
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+            ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+            
+            // Cső sapka
+            ctx.fillStyle = '#32CD32';
+            ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
+            ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
+          }
+      }
+      
+      // Debug hitbox
+      if (debug) {
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
+        ctx.strokeRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+      }
+    });
     
     // Power-upok
     powerUps.current.forEach(powerUp => {
@@ -3233,7 +3285,8 @@ export default function SzenyoMadar() {
             ctx.fillText('🛡', -6, 4);
             break;
           case 'slow':
-            ctx.fillStyle = '#9932CC';
+            ctx.fillStyle
+             = '#9932CC';
             ctx.beginPath();
             ctx.arc(0, 0, 12, 0, Math.PI * 2);
             ctx.fill();
@@ -3334,26 +3387,6 @@ export default function SzenyoMadar() {
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
           ctx.fill();
-          break;
-        case 'aurora':
-          // Aurora borealis effect
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          const waveAlpha = Math.sin(time.current.frameCount * 0.05 + particle.x * 0.01) * 0.3 + 0.7;
-          ctx.fillStyle = particle.color + Math.floor(alpha * waveAlpha * 120).toString(16).padStart(2, '0');
-          
-          // Create wavy aurora shape
-          ctx.beginPath();
-          ctx.moveTo(particle.x - particle.size, particle.y);
-          for (let x = 0; x < particle.size * 2; x += 5) {
-            const waveY = particle.y + Math.sin((particle.x + x) * 0.02 + time.current.frameCount * 0.03) * 15;
-            ctx.lineTo(particle.x - particle.size + x, waveY);
-          }
-          ctx.lineTo(particle.x + particle.size, particle.y + 20);
-          ctx.lineTo(particle.x - particle.size, particle.y + 20);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
           break;
       }
       ctx.restore();
@@ -3877,10 +3910,6 @@ export default function SzenyoMadar() {
     }
     
     ctx.restore();
-  
-  // Rendering setup 
-  useEffect(() => {
-    // Rendering initialization if needed  
   }, [debug]);
 
   // Fő game loop - 60 FPS standardizálva
@@ -3953,81 +3982,20 @@ export default function SzenyoMadar() {
     }
   }, []);
 
-  // Event handlerek
+  // Event handlerek - áthelyezve inputManager-be
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ha a konzol nyitva van, ne akadályozzuk meg a billentyűzet használatát
-      if (showConsole) {
-        return; // Engedjük át minden billentyűt a konzolhoz
-      }
-      
-      const b = bird.current;
-      const currentSkin = birdSkins.current.find(skin => skin.id === selectedBirdSkin);
-      
-      switch (e.code) {
-        case 'Space':
-        case 'ArrowUp':
-          e.preventDefault();
-          flap();
-          break;
-        case 'KeyX':
-        case 'KeyS':
-          e.preventDefault();
-          shoot();
-          break;
-        case 'KeyQ': // Demon Bird - Shadow Teleport
-          e.preventDefault();
-          if (currentSkin?.abilities.shadowTeleport && b.shadowTeleportsLeft > 0) {
-            b.shadowTeleportsLeft--;
-            b.y = Math.max(50, Math.min(world.current.h - 50, Math.random() * world.current.h));
-            createParticles(b.x, b.y, 15, '#8B0000', 'explosion');
-            playSound(400, 0.3, 'powerup');
-          }
-          break;
-        case 'KeyE': // Super Bird - Wall Phase
-          e.preventDefault();
-          if (currentSkin?.abilities.flyThroughWalls && b.wallPhaseLeft > 0) {
-            b.wallPhaseLeft = Math.min(b.wallPhaseLeft, 180); // 3 seconds max
-            b.wallPhaseActive = true;
-            createParticles(b.x, b.y, 10, '#0080FF', 'sparkle');
-            playSound(600, 0.2, 'powerup');
-          }
-          break;
-        case 'KeyF': // UFO Bird - Warp Speed
-          e.preventDefault();
-          if (currentSkin?.abilities.warpSpeed && b.warpJumpsLeft > 0) {
-            b.warpJumpsLeft--;
-            b.x += 150; // Quick forward movement
-            createParticles(b.x, b.y, 12, '#00FF00', 'trail');
-            playSound(800, 0.2, 'powerup');
-          }
-          break;
-        case 'KeyP':
-          togglePause();
-          break;
-        case 'KeyR':
-          if (state === GameState.GAMEOVER) restart();
-          break;
-        case 'KeyD':
-          setDebug(d => !d);
-          break;
-      }
-    };
-
     const handleVisibilityChange = () => {
       if (document.hidden && state === GameState.RUN) {
         setState(GameState.PAUSE);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [flap, togglePause, restart, state, showConsole]);
+  }, [state]);
 
   // Canvas és resize setup
   useEffect(() => {
@@ -4227,9 +4195,6 @@ export default function SzenyoMadar() {
                   {weather.current.type === 'rain' && '🌧️ Esik'}
                   {weather.current.type === 'snow' && '❄️ Havazik'}
                   {weather.current.type === 'fog' && '🌫️ Ködös'}
-                  {weather.current.type === 'aurora' && '🌌 Aurora'}
-                  {weather.current.type === 'current' && '🌊 Áramlatok'}
-                  {weather.current.type === 'storm' && '⛈️ Vihar'}
                 </div>
               )}
               
@@ -4237,7 +4202,6 @@ export default function SzenyoMadar() {
               <div className="text-white text-xs font-bold mt-1 opacity-75">
                 {currentBiome.current.id === 'forest' && '🌲 Varázserdő'}
                 {currentBiome.current.id === 'city' && '🏙️ Cyber Város'}
-                {currentBiome.current.id === 'space' && '🚀 Galaktikus Űr'}
                 {score >= 10 && (
                   <div className="text-yellow-400 text-xs">
                     Következő biome: {Math.floor((score + 10) / 10) * 10} pont
@@ -4724,13 +4688,11 @@ export default function SzenyoMadar() {
                       <div className="text-2xl mb-2">
                         {biome.id === 'forest' && '🌲'}
                         {biome.id === 'city' && '🏙️'}
-                        {biome.id === 'space' && '🚀'}
                       </div>
                       <div className="text-white font-bold text-lg">{biome.name}</div>
                       <div className="text-sm text-gray-300 mb-2">
                         {biome.id === 'forest' && 'Fák és természetes akadályok'}
                         {biome.id === 'city' && 'Futurisztikus épületek és neon fények'}
-                        {biome.id === 'space' && 'Aszteroidák és űrállomások'}
                       </div>
                       <div className="text-xs text-blue-400">
                         Power-up bonus: {((biome.powerUpBonus || 1) * 100).toFixed(0)}%
