@@ -4261,11 +4261,11 @@ export default function SzenyoMadar() {
         
         {/* Touch Control Buttons for Special Abilities */}
         {state === GameState.RUN && (
-          <div className={`absolute bottom-4 ${buttonPosition === 'left' ? 'left-4' : 'right-4'} flex flex-col gap-2 pointer-events-auto`}>
+          <div className={`absolute bottom-16 ${buttonPosition === 'left' ? 'left-4' : 'right-4'} flex flex-col gap-3 pointer-events-auto`}>
             {/* Shadow Teleport - Demon Bird */}
             {getCurrentBirdSkin().abilities.shadowTeleport && bird.current.shadowTeleportsLeft > 0 && (
               <button
-                className="w-12 h-12 bg-red-800 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg active:bg-red-600"
+                className="w-16 h-16 bg-red-800 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg active:bg-red-600"
                 onTouchStart={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -4290,7 +4290,7 @@ export default function SzenyoMadar() {
                 }}
               >
                 😈
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-sm rounded-full w-6 h-6 flex items-center justify-center">
                   {bird.current.shadowTeleportsLeft}
                 </span>
               </button>
@@ -4299,7 +4299,7 @@ export default function SzenyoMadar() {
             {/* Wall Phase - Super Bird */}
             {getCurrentBirdSkin().abilities.flyThroughWalls && bird.current.wallPhaseLeft > 0 && (
               <button
-                className="w-12 h-12 bg-blue-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg active:bg-blue-400"
+                className="w-16 h-16 bg-blue-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg active:bg-blue-400"
                 onTouchStart={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -4324,7 +4324,7 @@ export default function SzenyoMadar() {
                 }}
               >
                 🦸‍♂️
-                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-sm rounded-full w-6 h-6 flex items-center justify-center">
                   {Math.ceil(bird.current.wallPhaseLeft / 60)}
                 </span>
               </button>
@@ -4333,7 +4333,7 @@ export default function SzenyoMadar() {
             {/* Warp Speed - UFO Bird */}
             {getCurrentBirdSkin().abilities.warpSpeed && bird.current.warpJumpsLeft > 0 && (
               <button
-                className="w-12 h-12 bg-green-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg active:bg-green-400"
+                className="w-16 h-16 bg-green-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg active:bg-green-400"
                 onTouchStart={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -4358,7 +4358,7 @@ export default function SzenyoMadar() {
                 }}
               >
                 🛸
-                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-sm rounded-full w-6 h-6 flex items-center justify-center">
                   {bird.current.warpJumpsLeft}
                 </span>
               </button>
@@ -4368,9 +4368,9 @@ export default function SzenyoMadar() {
         
         {/* Shoot Button for Combat Birds */}
         {state === GameState.RUN && getCurrentBirdSkin().abilities.canShoot && (
-          <div className={`absolute bottom-4 ${buttonPosition === 'left' ? 'right-4' : 'left-4'} pointer-events-auto`}>
+          <div className={`absolute bottom-16 ${buttonPosition === 'left' ? 'right-4' : 'left-4'} pointer-events-auto`}>
             <button
-              className="w-14 h-14 bg-orange-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg active:bg-orange-400"
+              className="w-18 h-18 bg-orange-600 bg-opacity-80 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg active:bg-orange-400"
               onTouchStart={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -4907,29 +4907,6 @@ export default function SzenyoMadar() {
           <div className="absolute bottom-4 left-4 text-white text-sm pixel-text opacity-75">
             P = Szünet | D = Debug
             {bird.current.canShoot && <div>X/S = Lövés</div>}
-          </div>
-        )}
-        
-        {/* Shooting button for Rambo Bird (mobile) */}
-        {state === GameState.RUN && bird.current.canShoot && (
-          <div className="absolute bottom-4 right-4 pointer-events-auto">
-            <button
-              className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-colors"
-              onTouchStart={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                shoot();
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                shoot();
-              }}
-              disabled={bird.current.shootCooldown > 0}
-              style={{ opacity: bird.current.shootCooldown > 0 ? 0.5 : 1 }}
-            >
-              🔫
-            </button>
           </div>
         )}
         
