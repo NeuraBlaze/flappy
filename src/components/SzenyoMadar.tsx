@@ -3243,7 +3243,8 @@ export default function SzenyoMadar() {
             ctx.fillText('🛡', -6, 4);
             break;
           case 'slow':
-            ctx.fillStyle = '#9932CC';
+            ctx.fillStyle
+             = '#9932CC';
             ctx.beginPath();
             ctx.arc(0, 0, 12, 0, Math.PI * 2);
             ctx.fill();
