@@ -1638,33 +1638,37 @@ export default function SzenyoMadar() {
     // Cső ütközések
     for (const pipe of pipes.current) {
       if (pipe.type === 'tree') {
-        // Fa esetében a teljes fa területén ütközés (törzs + lombkorona + ágak)
-        // Törzs ütközés
-        if (pipe.x + 6 < b.x + b.r && pipe.x + 10 > b.x - b.r) {
-          if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap) {
-            return true;
-          }
-        }
-        // Lombkorona ütközés (felső) - szélesebb terület
-        if (pipe.x - 10 < b.x + b.r && pipe.x + w.pipeW + 10 > b.x - b.r) {
-          if (b.y + b.r > pipe.top - 30 && b.y - b.r < pipe.top) {
-            return true;
-          }
-        }
-        // Lombkorona ütközés (alsó) - szélesebb terület
-        if (pipe.x - 10 < b.x + b.r && pipe.x + w.pipeW + 10 > b.x - b.r) {
-          if (b.y + b.r > pipe.top + w.gap && b.y - b.r < pipe.top + w.gap + 30) {
-            return true;
-          }
-        }
-        // Ágak ütközés
-        if (pipe.x < b.x + b.r && pipe.x + w.pipeW > b.x - b.r) {
-          if (b.y + b.r > pipe.top - 8 && b.y - b.r < pipe.top - 7) {
-            return true;
-          }
-          if (b.y + b.r > pipe.top + w.gap + 8 && b.y - b.r < pipe.top + w.gap + 12) {
-            return true;
-          }
+        // Fa esetében pontosabb ütközési detektálás minden részre
+        const trunkLeft = pipe.x + 6;
+        const trunkRight = pipe.x + 10;
+        
+        // Lombkorona szélessége a rajzolás alapján: pipe.x + w.pipeW/2 - width/2, ahol width max ~20
+        // Tehát kb pipe.x - 2 és pipe.x + w.pipeW + 2 között
+        const foliageLeft = pipe.x - 5;
+        const foliageRight = pipe.x + w.pipeW + 5;
+        
+        // Törzs ütközés (keskeny, de magas) - a teljes törzsön át
+        const hitTrunk = b.x + b.r > trunkLeft && b.x - b.r < trunkRight &&
+                         (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap);
+        
+        // Felső lombkorona ütközés (széles terület) - pipe.top - 25 és pipe.top - 5 között
+        const hitUpperFoliage = b.x + b.r > foliageLeft && b.x - b.r < foliageRight &&
+                                b.y - b.r < pipe.top - 5 && b.y + b.r > pipe.top - 25;
+        
+        // Alsó lombkorona ütközés (széles terület) - pipe.top + w.gap + 5 és + 25 között
+        const hitLowerFoliage = b.x + b.r > foliageLeft && b.x - b.r < foliageRight &&
+                                b.y + b.r > pipe.top + w.gap + 5 && b.y - b.r < pipe.top + w.gap + 25;
+        
+        // Felső ágak ütközés - pipe.top - 8 magasságban
+        const hitUpperBranch = b.x + b.r > pipe.x + 1 && b.x - b.r < pipe.x + 12 &&
+                               b.y + b.r > pipe.top - 8 && b.y - b.r < pipe.top - 6;
+        
+        // Alsó ágak ütközés - pipe.top + w.gap + 8 és + 12 között
+        const hitLowerBranch = b.x + b.r > pipe.x + 1 && b.x - b.r < pipe.x + 13 &&
+                               b.y + b.r > pipe.top + w.gap + 8 && b.y - b.r < pipe.top + w.gap + 12;
+        
+        if (hitTrunk || hitUpperFoliage || hitLowerFoliage || hitUpperBranch || hitLowerBranch) {
+          return true;
         }
       } else {
         // Normál csövek esetében a teljes szélességben ütközés
