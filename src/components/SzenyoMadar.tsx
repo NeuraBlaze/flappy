@@ -2404,19 +2404,56 @@ export default function SzenyoMadar() {
     pipes.current.forEach(pipe => {
       switch (pipe.type) {
         case 'tree':
-          // Erdő fa renderelés
-          ctx.fillStyle = '#8B4513'; // trunk
-          ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
-          ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-          
-          // Lombkorona
-          ctx.fillStyle = '#228B22';
-          ctx.beginPath();
-          ctx.arc(pipe.x + w.pipeW/2, pipe.top - 15, 25, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(pipe.x + w.pipeW/2, pipe.top + w.gap + 15, 25, 0, Math.PI * 2);
-          ctx.fill();
+          // Erdő fa renderelés - pixel art stílusban
+          ctx.fillStyle = '#654321'; // sötétebb barna törzs
+
+          // Fő törzs
+          ctx.fillRect(pipe.x + 6, 0, 4, pipe.top);
+          ctx.fillRect(pipe.x + 6, pipe.top + w.gap, 4, w.h - w.groundH - pipe.top - w.gap);
+
+          // Törzs textúra - kis kiemelkedések
+          ctx.fillStyle = '#8B4513'; // világosabb barna
+          ctx.fillRect(pipe.x + 7, 15, 2, 3);
+          ctx.fillRect(pipe.x + 6, 35, 1, 2);
+          ctx.fillRect(pipe.x + 9, 55, 1, 2);
+          ctx.fillRect(pipe.x + 7, pipe.top + w.gap + 20, 2, 2);
+          ctx.fillRect(pipe.x + 8, pipe.top + w.gap + 40, 1, 3);
+
+          // Lombkorona - felső
+          ctx.fillStyle = '#228B22'; // sötétebb zöld
+          // Fő lombkorona alak
+          for (let y = pipe.top - 25; y < pipe.top - 5; y += 2) {
+            const width = Math.max(1, 20 - Math.abs(y - (pipe.top - 15)) * 1.5);
+            ctx.fillRect(pipe.x + w.pipeW/2 - width/2, y, width, 2);
+          }
+
+          // Lombkorona textúra - világosabb foltok
+          ctx.fillStyle = '#32CD32'; // világosabb zöld
+          ctx.fillRect(pipe.x + 2, pipe.top - 20, 3, 2);
+          ctx.fillRect(pipe.x + 12, pipe.top - 18, 2, 3);
+          ctx.fillRect(pipe.x + 5, pipe.top - 12, 2, 2);
+          ctx.fillRect(pipe.x + 8, pipe.top - 15, 1, 1);
+
+          // Lombkorona - alsó
+          ctx.fillStyle = '#228B22'; // sötétebb zöld
+          for (let y = pipe.top + w.gap + 5; y < pipe.top + w.gap + 25; y += 2) {
+            const width = Math.max(1, 20 - Math.abs(y - (pipe.top + w.gap + 15)) * 1.5);
+            ctx.fillRect(pipe.x + w.pipeW/2 - width/2, y, width, 2);
+          }
+
+          // Lombkorona textúra - alsó
+          ctx.fillStyle = '#32CD32'; // világosabb zöld
+          ctx.fillRect(pipe.x + 3, pipe.top + w.gap + 10, 2, 2);
+          ctx.fillRect(pipe.x + 11, pipe.top + w.gap + 12, 3, 2);
+          ctx.fillRect(pipe.x + 6, pipe.top + w.gap + 18, 1, 2);
+          ctx.fillRect(pipe.x + 9, pipe.top + w.gap + 15, 2, 1);
+
+          // Kis ágak
+          ctx.fillStyle = '#654321';
+          ctx.fillRect(pipe.x + 2, pipe.top - 8, 3, 1);
+          ctx.fillRect(pipe.x + 11, pipe.top - 6, 2, 1);
+          ctx.fillRect(pipe.x + 1, pipe.top + w.gap + 8, 4, 1);
+          ctx.fillRect(pipe.x + 10, pipe.top + w.gap + 12, 3, 1);
           break;
           
         case 'building':
@@ -2755,15 +2792,61 @@ export default function SzenyoMadar() {
               ctx.fill();
             }
           } else {
-            // Klasszikus zöld cső más biome-okhoz
+            // Klasszikus zöld cső pixel art stílusban
+            // Fő cső test - sötétebb zöld
             ctx.fillStyle = '#228B22';
             ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
             ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-            
-            // Cső sapka
+
+            // Cső sapka - világosabb zöld
             ctx.fillStyle = '#32CD32';
             ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
             ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
+
+            // Cső sapka kiemelkedések
+            ctx.fillStyle = '#90EE90';
+            ctx.fillRect(pipe.x - 2, pipe.top - 12, w.pipeW + 4, 2);
+            ctx.fillRect(pipe.x - 2, pipe.top + w.gap + 3, w.pipeW + 4, 2);
+
+            // Cső oldal kiemelkedések
+            ctx.fillStyle = '#006400';
+            ctx.fillRect(pipe.x - 1, pipe.top - 8, 1, 8);
+            ctx.fillRect(pipe.x + w.pipeW, pipe.top - 8, 1, 8);
+            ctx.fillRect(pipe.x - 1, pipe.top + w.gap + 7, 1, 8);
+            ctx.fillRect(pipe.x + w.pipeW, pipe.top + w.gap + 7, 1, 8);
+
+            // Cső belső mintázat - függőleges vonalak
+            ctx.fillStyle = '#006400';
+            for (let i = 0; i < 3; i++) {
+              const x = pipe.x + 3 + i * 4;
+              ctx.fillRect(x, 10, 1, pipe.top - 20);
+              ctx.fillRect(x, pipe.top + w.gap + 10, 1, w.h - w.groundH - pipe.top - w.gap - 20);
+            }
+
+            // Cső belső mintázat - vízszintes kiemelkedések
+            ctx.fillStyle = '#32CD32';
+            for (let y = 20; y < pipe.top - 10; y += 15) {
+              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 2);
+            }
+            for (let y = pipe.top + w.gap + 20; y < w.h - w.groundH - 10; y += 15) {
+              ctx.fillRect(pipe.x + 2, y, w.pipeW - 4, 2);
+            }
+
+            // Cső vége díszítések
+            ctx.fillStyle = '#FFD700';
+            // Felső cső vége
+            ctx.fillRect(pipe.x + 4, pipe.top - 2, 2, 2);
+            ctx.fillRect(pipe.x + w.pipeW - 6, pipe.top - 2, 2, 2);
+            // Alsó cső vége
+            ctx.fillRect(pipe.x + 4, pipe.top + w.gap - 2, 2, 2);
+            ctx.fillRect(pipe.x + w.pipeW - 6, pipe.top + w.gap - 2, 2, 2);
+
+            // Kis dudorok a cső oldalán
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(pipe.x - 2, pipe.top - 5, 2, 3);
+            ctx.fillRect(pipe.x + w.pipeW, pipe.top - 5, 2, 3);
+            ctx.fillRect(pipe.x - 2, pipe.top + w.gap + 2, 2, 3);
+            ctx.fillRect(pipe.x + w.pipeW, pipe.top + w.gap + 2, 2, 3);
           }
           break;
           
