@@ -307,7 +307,142 @@ interface BirdSkin {
   comingSoon?: boolean; // Ha true, akkor "Hamarosan" státusz
 }
 
-// ===== 🏗️ MAIN GAME COMPONENT =====
+// ===== � ADVANCED GRASS SYSTEM =====
+// Professzionális két rétegű fű rendszer szél animációval
+const GRASS_CFG = {
+  layers: [
+    // Háttér réteg – sűrűbb, alacsonyabb, lassabban hullámzik
+    { count: 220, heightMin: 4, heightMax: 10, widthMin: 0.8, widthMax: 1.2, swayAmp: 5, swayFreq: 0.9, swaySpeed: 0.025, yOffset: 2, colorSet: ['#206b20','#2b7f2b','#2f8a3a','#257a2b'] },
+    // Előtér réteg – ritkább, magasabb, erősebb hullámzás
+    { count: 140, heightMin: 8, heightMax: 18, widthMin: 1.0, widthMax: 1.6, swayAmp: 10, swayFreq: 1.2, swaySpeed: 0.04, yOffset: 0, colorSet: ['#1a601a','#2e8b57','#3a9d23','#1f7a1f'] },
+  ],
+  pixelSnap: false,        // true esetén „pixelesebb" karakter (koordináták kerekítése)
+  flowersRatio: 0.08,      // a szálak hányada legyen virág
+  flowerColors: ['#ffd700','#ff6ec7','#ffffff','#ff3b3b'],
+  gradientSoil: true,      // talajszín gradienst is húzunk a fű tövénél
+};
+
+// Segéd függvények
+const rand = (seed => () => (seed = (seed * 9301 + 49297) % 233280) / 233280)(123456); // determinisztikus
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+const snap = (v: number): number => (GRASS_CFG.pixelSnap ? Math.round(v) : v);
+
+// Kvázi-„noise": több sinus összegzése, finomabb szélmezőhöz
+function breeze(x: number, t: number, freq: number, speed: number): number {
+  return (
+    Math.sin((x * 0.015 * freq) + t * speed) * 0.6 +
+    Math.sin((x * 0.027 * freq) - t * speed * 0.7) * 0.3 +
+    Math.sin((x * 0.045 * freq) + t * speed * 1.3) * 0.2
+  );
+}
+
+// Fűszál adatszerkezet
+function makeGrassBlade(layer: any, i: number, W: number, H: number, groundH: number) {
+  const x = Math.floor(rand() * W);
+  const h = lerp(layer.heightMin, layer.heightMax, rand());
+  const baseWidth = lerp(layer.widthMin, layer.widthMax, rand());
+  const color = layer.colorSet[Math.floor(rand() * layer.colorSet.length)];
+  const phase = rand() * Math.PI * 2;
+  const isFlower = rand() < GRASS_CFG.flowersRatio;
+  const baseY = H - groundH + layer.yOffset;
+  return { x, baseY, h, baseWidth, color, phase, isFlower };
+}
+
+// Rétegek generálása
+function makeGrassLayers(W: number, H: number, groundH: number) {
+  return GRASS_CFG.layers.map(layer => {
+    const arr = [];
+    for (let i = 0; i < layer.count; i++) arr.push(makeGrassBlade(layer, i, W, H, groundH));
+    // Az X szerinti rendezés szebb átfedést ad, és a rétegen belül rajzolási sorrendet fixál
+    arr.sort((a, b) => a.x - b.x);
+    return { meta: layer, blades: arr };
+  });
+}
+
+// Talaj alapsáv (opcionális)
+function drawSoilGradient(ctx: CanvasRenderingContext2D, W: number, H: number, groundH: number) {
+  const y0 = H - groundH;
+  const g = ctx.createLinearGradient(0, y0 - 1, 0, y0);
+  g.addColorStop(0, '#2b542b');
+  g.addColorStop(0.5, '#1e3a1e');
+  g.addColorStop(1, '#0f200f');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, snap(y0 - 1), W, 1);
+}
+
+// Egy fűszál kirajzolása
+function strokeBlade(ctx: CanvasRenderingContext2D, blade: any, layerMeta: any, t: number) {
+  const { x, baseY, h, baseWidth, color, phase } = blade;
+  const sway =
+    breeze(x + phase * 15, t, layerMeta.swayFreq, layerMeta.swaySpeed) * layerMeta.swayAmp;
+
+  // enyhén ívelt szál: alul vastagabb, felül vékonyabb
+  const topX = x + sway;
+  const midX = x + sway * 0.4;
+
+  ctx.strokeStyle = color;
+
+  // tövénél picit vastagabb kontúr
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // szár „gerince"
+  ctx.lineWidth = snap(baseWidth);
+  ctx.beginPath();
+  ctx.moveTo(snap(x), snap(baseY));
+  ctx.quadraticCurveTo(snap(midX), snap(baseY - h * 0.55), snap(topX), snap(baseY - h));
+  ctx.stroke();
+
+  // vékony csúcsfény a „gerinc" egyik oldalán
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = snap(Math.max(0.75, baseWidth * 0.6));
+  ctx.beginPath();
+  ctx.moveTo(snap(x + 0.15), snap(baseY - 0.5));
+  ctx.quadraticCurveTo(snap(midX + 0.15), snap(baseY - h * 0.55), snap(topX + 0.15), snap(baseY - h));
+  ctx.stroke();
+}
+
+// Virág a szál végén (ritkán)
+function drawFlower(ctx: CanvasRenderingContext2D, blade: any, layerMeta: any, t: number) {
+  if (!blade.isFlower) return;
+  const { x, baseY, h, phase } = blade;
+  const sway =
+    breeze(x + phase * 15, t, layerMeta.swayFreq, layerMeta.swaySpeed) * layerMeta.swayAmp;
+
+  const topX = x + sway;
+  const topY = baseY - h;
+
+  // apró bólogatás
+  const bob = Math.sin(t * 1.7 + phase) * 0.7;
+  const r = 1.2 + (Math.sin(t * 0.9 + phase) * 0.4);
+
+  ctx.fillStyle = GRASS_CFG.flowerColors[Math.floor((x + phase * 999) % GRASS_CFG.flowerColors.length)];
+  ctx.beginPath();
+  ctx.arc(snap(topX + bob), snap(topY - 2 + bob), r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // pici közép (porzó)
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.arc(snap(topX + bob), snap(topY - 2 + bob), r * 0.35, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Réteg kirajzolása
+function drawGrassLayer(ctx: CanvasRenderingContext2D, layer: any, t: number) {
+  // a háttér (első elem) menjen előbb, az előtér később, így természetes az átfedés
+  for (const blade of layer.blades) {
+    // enyhe „szín-moraj": időben picit változó árnyalat (fű „élet")
+    const jitter = (Math.sin((blade.x + blade.phase) * 0.03 + t * 0.4) + 1) * 0.04; // 0..0.08
+    ctx.globalAlpha = 0.92 + jitter; // 0.92..1.0
+    strokeBlade(ctx, blade, layer.meta, t);
+  }
+  ctx.globalAlpha = 1;
+  // virágok külön passban, hogy ráüljenek a szálakra
+  for (const blade of layer.blades) drawFlower(ctx, blade, layer.meta, t);
+}
+
+// ===== �🏗️ MAIN GAME COMPONENT =====
 // Ez a nagy monolit komponens amit szét kell bontani
 export default function SzenyoMadar() {
   // ===== 🔗 DOM REFERENCES =====
@@ -315,6 +450,10 @@ export default function SzenyoMadar() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number | null>(null);
+  
+  // ===== 🌱 GRASS SYSTEM =====
+  const grassLayers = useRef<any[]>([]); // Will be initialized in useEffect
+  const grassStartTime = useRef(performance.now());
   
   // ===== 🎮 GAME STATE HOOKS =====
   // Jövőbeli GameStateManager.tsx komponensbe
@@ -3232,15 +3371,37 @@ export default function SzenyoMadar() {
             ctx.strokeRect(pipe.x - 1, 0, w.pipeW + 2, pipe.top);
             ctx.strokeRect(pipe.x - 1, pipe.top + w.gap, w.pipeW + 2, w.h - w.groundH - pipe.top - w.gap);
           } else {
-            // Klasszikus zöld cső más biome-okhoz
-            ctx.fillStyle = '#228B22';
+            // Klasszikus zöld cső pixel art stílusban
+            // Fő cső test
+            ctx.fillStyle = '#228B22'; // Sötétebb zöld alap
             ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
             ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
-            
-            // Cső sapka
-            ctx.fillStyle = '#32CD32';
+
+            // Cső sapka - pixel art stílusú
+            ctx.fillStyle = '#32CD32'; // Világosabb zöld sapka
             ctx.fillRect(pipe.x - 3, pipe.top - 15, w.pipeW + 6, 15);
             ctx.fillRect(pipe.x - 3, pipe.top + w.gap, w.pipeW + 6, 15);
+
+            // Sapka részletek - árnyékok és kiemelkedések
+            ctx.fillStyle = '#228B22'; // Sötétebb részletek
+            ctx.fillRect(pipe.x - 2, pipe.top - 12, w.pipeW + 4, 2); // Sapka árnyék
+            ctx.fillRect(pipe.x - 2, pipe.top + w.gap + 13, w.pipeW + 4, 2); // Alsó sapka árnyék
+
+            // Cső oldal kiemelkedések
+            ctx.fillStyle = '#90EE90'; // Világosabb kiemelkedések
+            ctx.fillRect(pipe.x, pipe.top - 8, 2, 8); // Bal felső kiemelkedés
+            ctx.fillRect(pipe.x + w.pipeW - 2, pipe.top - 8, 2, 8); // Jobb felső kiemelkedés
+            ctx.fillRect(pipe.x, pipe.top + w.gap + 7, 2, 8); // Bal alsó kiemelkedés
+            ctx.fillRect(pipe.x + w.pipeW - 2, pipe.top + w.gap + 7, 2, 8); // Jobb alsó kiemelkedés
+
+            // Cső belső mintázat - függőleges vonalak
+            ctx.fillStyle = '#006400'; // Sötét zöld mintázat
+            for (let y = 10; y < pipe.top - 10; y += 15) {
+              ctx.fillRect(pipe.x + w.pipeW/2 - 1, y, 2, 8);
+            }
+            for (let y = pipe.top + w.gap + 10; y < w.h - w.groundH - 10; y += 15) {
+              ctx.fillRect(pipe.x + w.pipeW/2 - 1, y, 2, 8);
+            }
           }
       }
       
@@ -3885,15 +4046,11 @@ export default function SzenyoMadar() {
       ctx.restore();
     }
     
-    // Talaj
-    ctx.fillStyle = '#DEB887';
-    ctx.fillRect(0, w.h - w.groundH, w.w, w.groundH);
-    
-    // Füves talaj díszítés
-    ctx.fillStyle = '#228B22';
-    for (let x = 0; x < w.w; x += 20) {
-      ctx.fillRect(x, w.h - w.groundH, 15, 8);
-    }
+    // Advanced grass system
+    const grassTime = performance.now() - grassStartTime.current;
+    drawSoilGradient(ctx, w.w, w.h, w.groundH);
+    drawGrassLayer(ctx, grassLayers.current[0], grassTime); // Background layer
+    drawGrassLayer(ctx, grassLayers.current[1], grassTime); // Foreground layer
     
     ctx.restore();
   }, [debug, getCurrentBirdSkin]);
@@ -3966,6 +4123,9 @@ export default function SzenyoMadar() {
       ctx.scale(dpr, dpr);
       ctx.imageSmoothingEnabled = false;
     }
+    
+    // Initialize grass layers with correct dimensions
+    grassLayers.current = makeGrassLayers(world.current.w, world.current.h, world.current.groundH);
   }, []);
 
   // Event handlerek
