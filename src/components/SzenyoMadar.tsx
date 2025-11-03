@@ -3528,8 +3528,29 @@ export default function SzenyoMadar() {
       if (debug) {
         ctx.strokeStyle = '#FF0000';
         ctx.lineWidth = 2;
-        ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
-        ctx.strokeRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+        
+        if (pipe.type === 'tree') {
+          // Fa esetében a pontos hitbox területek megjelenítése
+          // Törzs
+          ctx.strokeRect(pipe.x + 6, 0, 4, pipe.top);
+          ctx.strokeRect(pipe.x + 6, pipe.top + w.gap, 4, w.h - w.groundH - pipe.top - w.gap);
+          
+          // Felső lombkorona
+          ctx.strokeRect(pipe.x - 5, pipe.top - 25, w.pipeW + 10, 20);
+          
+          // Alsó lombkorona
+          ctx.strokeRect(pipe.x - 5, pipe.top + w.gap + 5, w.pipeW + 10, 20);
+          
+          // Felső ágak
+          ctx.strokeRect(pipe.x + 1, pipe.top - 8, 11, 2);
+          
+          // Alsó ágak
+          ctx.strokeRect(pipe.x + 1, pipe.top + w.gap + 8, 12, 4);
+        } else {
+          // Normál csövek esetében
+          ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
+          ctx.strokeRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
+        }
       }
     });
     
