@@ -1645,24 +1645,24 @@ export default function SzenyoMadar() {
             return true;
           }
         }
-        // Lombkorona ütközés (felső)
-        if (pipe.x - 5 < b.x + b.r && pipe.x + w.pipeW + 5 > b.x - b.r) {
-          if (b.y - b.r < pipe.top - 5 && b.y + b.r > pipe.top - 25) {
+        // Lombkorona ütközés (felső) - szélesebb terület
+        if (pipe.x - 10 < b.x + b.r && pipe.x + w.pipeW + 10 > b.x - b.r) {
+          if (b.y + b.r > pipe.top - 30 && b.y - b.r < pipe.top) {
             return true;
           }
         }
-        // Lombkorona ütközés (alsó)
-        if (pipe.x - 5 < b.x + b.r && pipe.x + w.pipeW + 5 > b.x - b.r) {
-          if (b.y - b.r < pipe.top + w.gap + 25 && b.y + b.r > pipe.top + w.gap + 5) {
+        // Lombkorona ütközés (alsó) - szélesebb terület
+        if (pipe.x - 10 < b.x + b.r && pipe.x + w.pipeW + 10 > b.x - b.r) {
+          if (b.y + b.r > pipe.top + w.gap && b.y - b.r < pipe.top + w.gap + 30) {
             return true;
           }
         }
         // Ágak ütközés
         if (pipe.x < b.x + b.r && pipe.x + w.pipeW > b.x - b.r) {
-          if (b.y - b.r < pipe.top - 8 && b.y + b.r > pipe.top - 8) {
+          if (b.y + b.r > pipe.top - 8 && b.y - b.r < pipe.top - 7) {
             return true;
           }
-          if (b.y - b.r < pipe.top + w.gap + 12 && b.y + b.r > pipe.top + w.gap + 12) {
+          if (b.y + b.r > pipe.top + w.gap + 8 && b.y - b.r < pipe.top + w.gap + 12) {
             return true;
           }
         }
