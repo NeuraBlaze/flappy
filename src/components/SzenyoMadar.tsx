@@ -1639,15 +1639,16 @@ export default function SzenyoMadar() {
     for (const pipe of pipes.current) {
       if (pipe.type === 'tree') {
         // Fa esetében pontosabb ütközési detektálás minden részre
-        const trunkLeft = pipe.x + 6;
-        const trunkRight = pipe.x + 10;
+        // Törzs most a teljes pipe szélességben van
+        const trunkLeft = pipe.x;
+        const trunkRight = pipe.x + w.pipeW;
         
         // Lombkorona szélessége a rajzolás alapján: pipe.x + w.pipeW/2 - width/2, ahol width max ~20
         // Tehát kb pipe.x - 2 és pipe.x + w.pipeW + 2 között
         const foliageLeft = pipe.x - 5;
         const foliageRight = pipe.x + w.pipeW + 5;
         
-        // Törzs ütközés (keskeny, de magas) - a teljes törzsön át
+        // Törzs ütközés (teljes pipe szélesség) - a teljes törzsön át
         const hitTrunk = b.x + b.r > trunkLeft && b.x - b.r < trunkRight &&
                          (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap);
         
@@ -2443,17 +2444,17 @@ export default function SzenyoMadar() {
           // Erdő fa renderelés - pixel art stílusban
           ctx.fillStyle = '#654321'; // sötétebb barna törzs
 
-          // Fő törzs
-          ctx.fillRect(pipe.x + 6, 0, 4, pipe.top);
-          ctx.fillRect(pipe.x + 6, pipe.top + w.gap, 4, w.h - w.groundH - pipe.top - w.gap);
+          // Fő törzs - teljes pipe szélességben
+          ctx.fillRect(pipe.x, 0, w.pipeW, pipe.top);
+          ctx.fillRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
 
           // Törzs textúra - kis kiemelkedések
           ctx.fillStyle = '#8B4513'; // világosabb barna
-          ctx.fillRect(pipe.x + 7, 15, 2, 3);
-          ctx.fillRect(pipe.x + 6, 35, 1, 2);
-          ctx.fillRect(pipe.x + 9, 55, 1, 2);
-          ctx.fillRect(pipe.x + 7, pipe.top + w.gap + 20, 2, 2);
-          ctx.fillRect(pipe.x + 8, pipe.top + w.gap + 40, 1, 3);
+          ctx.fillRect(pipe.x + w.pipeW/2 - 1, 15, 2, 3);
+          ctx.fillRect(pipe.x + 2, 35, 1, 2);
+          ctx.fillRect(pipe.x + w.pipeW - 3, 55, 1, 2);
+          ctx.fillRect(pipe.x + w.pipeW/2, pipe.top + w.gap + 20, 2, 2);
+          ctx.fillRect(pipe.x + w.pipeW - 4, pipe.top + w.gap + 40, 1, 3);
 
           // Lombkorona - felső
           ctx.fillStyle = '#228B22'; // sötétebb zöld
@@ -3531,9 +3532,9 @@ export default function SzenyoMadar() {
         
         if (pipe.type === 'tree') {
           // Fa esetében a pontos hitbox területek megjelenítése
-          // Törzs
-          ctx.strokeRect(pipe.x + 6, 0, 4, pipe.top);
-          ctx.strokeRect(pipe.x + 6, pipe.top + w.gap, 4, w.h - w.groundH - pipe.top - w.gap);
+          // Törzs - teljes pipe szélességben
+          ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
+          ctx.strokeRect(pipe.x, pipe.top + w.gap, w.pipeW, w.h - w.groundH - pipe.top - w.gap);
           
           // Felső lombkorona
           ctx.strokeRect(pipe.x - 5, pipe.top - 25, w.pipeW + 10, 20);
