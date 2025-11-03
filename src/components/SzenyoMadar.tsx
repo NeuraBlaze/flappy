@@ -1637,9 +1637,41 @@ export default function SzenyoMadar() {
     
     // Cső ütközések
     for (const pipe of pipes.current) {
-      if (pipe.x < b.x + b.r && pipe.x + w.pipeW > b.x - b.r) {
-        if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap) {
-          return true;
+      if (pipe.type === 'tree') {
+        // Fa esetében a teljes fa területén ütközés (törzs + lombkorona + ágak)
+        // Törzs ütközés
+        if (pipe.x + 6 < b.x + b.r && pipe.x + 10 > b.x - b.r) {
+          if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap) {
+            return true;
+          }
+        }
+        // Lombkorona ütközés (felső)
+        if (pipe.x - 5 < b.x + b.r && pipe.x + w.pipeW + 5 > b.x - b.r) {
+          if (b.y - b.r < pipe.top - 5 && b.y + b.r > pipe.top - 25) {
+            return true;
+          }
+        }
+        // Lombkorona ütközés (alsó)
+        if (pipe.x - 5 < b.x + b.r && pipe.x + w.pipeW + 5 > b.x - b.r) {
+          if (b.y - b.r < pipe.top + w.gap + 25 && b.y + b.r > pipe.top + w.gap + 5) {
+            return true;
+          }
+        }
+        // Ágak ütközés
+        if (pipe.x < b.x + b.r && pipe.x + w.pipeW > b.x - b.r) {
+          if (b.y - b.r < pipe.top - 8 && b.y + b.r > pipe.top - 8) {
+            return true;
+          }
+          if (b.y - b.r < pipe.top + w.gap + 12 && b.y + b.r > pipe.top + w.gap + 12) {
+            return true;
+          }
+        }
+      } else {
+        // Normál csövek esetében a teljes szélességben ütközés
+        if (pipe.x < b.x + b.r && pipe.x + w.pipeW > b.x - b.r) {
+          if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + w.gap) {
+            return true;
+          }
         }
       }
     }
