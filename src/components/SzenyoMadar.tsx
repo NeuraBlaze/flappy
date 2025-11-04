@@ -247,9 +247,13 @@ interface Achievement {
 interface BackgroundObj {
   x: number;
   y: number;
-  type: 'cloud' | 'star';
+  type: 'cloud' | 'star' | 'planet' | 'station' | 'meteor' | 'nebula';
   size?: number;
   speed?: number;
+  color?: string;
+  layer?: number; // parallax réteg (1=távoli, 2=közepes, 3=közeli)
+  planetType?: 'mars' | 'jupiter' | 'saturn' | 'neptune';
+  rotation?: number;
 }
 
 // ===== 🚀 SPACE ENEMY SYSTEM =====
@@ -1515,16 +1519,66 @@ export default function SzenyoMadar() {
   const spawnBackgroundObject = useCallback(() => {
     const isSpace = currentBiome.current.id === 'space';
     
-    if (bgObjects.current.length < (isSpace ? 20 : 5) && Math.random() < (isSpace ? 0.02 : 0.01)) {
+    if (bgObjects.current.length < (isSpace ? 30 : 5) && Math.random() < (isSpace ? 0.03 : 0.01)) {
       if (isSpace) {
-        // Űr biome: csillagok spawn
-        bgObjects.current.push({
-          x: world.current.w + 20,
-          y: Math.random() * (world.current.h - world.current.groundH),
-          type: 'star',
-          size: 1 + Math.random() * 3,
-          speed: 0.1 + Math.random() * 0.2
-        });
+        const rand = Math.random();
+        
+        if (rand < 0.02) {
+          // 2% - Bolygó (ritka)
+          const planetTypes: ('mars' | 'jupiter' | 'saturn' | 'neptune')[] = ['mars', 'jupiter', 'saturn', 'neptune'];
+          bgObjects.current.push({
+            x: world.current.w + 100,
+            y: 50 + Math.random() * 150,
+            type: 'planet',
+            planetType: planetTypes[Math.floor(Math.random() * planetTypes.length)],
+            size: 40 + Math.random() * 60,
+            speed: 0.05 + Math.random() * 0.1,
+            layer: 1, // Távoli
+            rotation: Math.random() * Math.PI * 2
+          });
+        } else if (rand < 0.04) {
+          // 2% - Űrállomás
+          bgObjects.current.push({
+            x: world.current.w + 50,
+            y: 100 + Math.random() * 100,
+            type: 'station',
+            size: 30 + Math.random() * 20,
+            speed: 0.15,
+            layer: 2
+          });
+        } else if (rand < 0.08) {
+          // 4% - Meteor
+          bgObjects.current.push({
+            x: world.current.w + Math.random() * 100,
+            y: -20,
+            type: 'meteor',
+            size: 3 + Math.random() * 5,
+            speed: 2 + Math.random() * 3,
+            rotation: Math.random() * Math.PI * 2
+          });
+        } else if (rand < 0.12) {
+          // 4% - Nebula köd
+          bgObjects.current.push({
+            x: world.current.w + 50,
+            y: Math.random() * (world.current.h - world.current.groundH),
+            type: 'nebula',
+            size: 60 + Math.random() * 100,
+            speed: 0.03 + Math.random() * 0.05,
+            color: ['rgba(138,43,226,0.15)', 'rgba(0,191,255,0.15)', 'rgba(255,20,147,0.15)'][Math.floor(Math.random() * 3)],
+            layer: 1
+          });
+        } else {
+          // 88% - Csillagok (gyakori)
+          const layer = Math.random() < 0.7 ? 1 : (Math.random() < 0.8 ? 2 : 3);
+          bgObjects.current.push({
+            x: world.current.w + 20,
+            y: Math.random() * (world.current.h - world.current.groundH),
+            type: 'star',
+            size: 1 + Math.random() * 3,
+            speed: 0.05 * layer + Math.random() * 0.1,
+            layer: layer
+          });
+        }
       } else {
         // Többi biome: felhők
         bgObjects.current.push({
@@ -2291,9 +2345,17 @@ export default function SzenyoMadar() {
     // Háttér objektumok (fix 60 FPS)
     spawnBackgroundObject();
     bgObjects.current.forEach(obj => {
-      obj.x -= (obj.speed || 1) * gameSpeed;
+      if (obj.type === 'meteor') {
+        // Meteorok: átlós mozgás lefelé
+        obj.x -= (obj.speed || 2) * gameSpeed;
+        obj.y += (obj.speed || 2) * 0.5 * gameSpeed;
+        if (obj.rotation !== undefined) obj.rotation += 0.1;
+      } else {
+        // Többi: normál vízszintes mozgás
+        obj.x -= (obj.speed || 1) * gameSpeed;
+      }
     });
-    bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
+    bgObjects.current = bgObjects.current.filter(obj => obj.x > -100 && obj.y < world.current.h + 50);
     
     // ŰRHAJÓ ELLENSÉG - csak űr biome-ban
     if (currentBiome.current.id === 'space') {
@@ -2625,18 +2687,19 @@ export default function SzenyoMadar() {
           ctx.arc(obj.x + (obj.size || 12) * 0.5, obj.y, (obj.size || 12) * 0.4, 0, Math.PI * 2);
           ctx.arc(obj.x - (obj.size || 12) * 0.3, obj.y, (obj.size || 12) * 0.3, 0, Math.PI * 2);
           ctx.fill();
-        } else {
-          // Csillag (űr biome)
+        } else if (obj.type === 'star') {
+          // Csillag (űr biome) - parallax rétegekkel
           if (currentBiome.current.id === 'space') {
-            // Egyszerű villogó pont
             const twinkle = Math.sin(time.current.frameCount * 0.1 + obj.x * 0.01) * 0.5 + 0.5;
-            ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + twinkle * 0.5})`;
+            const layer = obj.layer || 1;
+            const alpha = layer === 1 ? 0.3 : (layer === 2 ? 0.6 : 0.9);
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * (0.5 + twinkle * 0.5)})`;
             ctx.beginPath();
             ctx.arc(obj.x, obj.y, (obj.size || 2), 0, Math.PI * 2);
             ctx.fill();
             
             // Kereszt alakú csillogás nagyobb csillagoknál
-            if ((obj.size || 2) > 2) {
+            if ((obj.size || 2) > 2 && layer === 3) {
               ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + twinkle * 0.3})`;
               ctx.lineWidth = 1;
               ctx.beginPath();
@@ -2664,6 +2727,197 @@ export default function SzenyoMadar() {
             ctx.closePath();
             ctx.fill();
           }
+        } else if (obj.type === 'planet') {
+          // Bolygók
+          ctx.save();
+          ctx.translate(obj.x, obj.y);
+          if (obj.rotation) ctx.rotate(obj.rotation);
+          
+          const size = obj.size || 50;
+          
+          switch (obj.planetType) {
+            case 'mars':
+              // Mars - vöröses bolygó
+              const marsGrad = ctx.createRadialGradient(-size * 0.3, -size * 0.3, 0, 0, 0, size);
+              marsGrad.addColorStop(0, '#FF6347');
+              marsGrad.addColorStop(0.7, '#CD5C5C');
+              marsGrad.addColorStop(1, '#8B0000');
+              ctx.fillStyle = marsGrad;
+              ctx.beginPath();
+              ctx.arc(0, 0, size, 0, Math.PI * 2);
+              ctx.fill();
+              
+              // Mars felszín textúra
+              ctx.fillStyle = 'rgba(139, 0, 0, 0.3)';
+              ctx.beginPath();
+              ctx.arc(size * 0.3, size * 0.2, size * 0.15, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(-size * 0.2, -size * 0.3, size * 0.2, 0, Math.PI * 2);
+              ctx.fill();
+              break;
+              
+            case 'jupiter':
+              // Jupiter - sárga/barna csíkokkal
+              const jupGrad = ctx.createRadialGradient(-size * 0.3, -size * 0.3, 0, 0, 0, size);
+              jupGrad.addColorStop(0, '#F4A460');
+              jupGrad.addColorStop(0.6, '#DAA520');
+              jupGrad.addColorStop(1, '#B8860B');
+              ctx.fillStyle = jupGrad;
+              ctx.beginPath();
+              ctx.arc(0, 0, size, 0, Math.PI * 2);
+              ctx.fill();
+              
+              // Jupiter csíkok
+              ctx.strokeStyle = 'rgba(139, 69, 19, 0.4)';
+              ctx.lineWidth = size * 0.08;
+              for (let i = -2; i <= 2; i++) {
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.7, i * 0.3, Math.PI + i * 0.3);
+                ctx.stroke();
+              }
+              
+              // Nagy Vörös Folt
+              ctx.fillStyle = 'rgba(205, 92, 92, 0.7)';
+              ctx.beginPath();
+              ctx.ellipse(size * 0.2, size * 0.1, size * 0.2, size * 0.15, 0, 0, Math.PI * 2);
+              ctx.fill();
+              break;
+              
+            case 'saturn':
+              // Szaturnusz - sárga gyűrűkkel
+              const satGrad = ctx.createRadialGradient(-size * 0.3, -size * 0.3, 0, 0, 0, size * 0.7);
+              satGrad.addColorStop(0, '#F0E68C');
+              satGrad.addColorStop(0.7, '#DAA520');
+              satGrad.addColorStop(1, '#B8860B');
+              ctx.fillStyle = satGrad;
+              ctx.beginPath();
+              ctx.arc(0, 0, size * 0.7, 0, Math.PI * 2);
+              ctx.fill();
+              
+              // Gyűrűk
+              ctx.strokeStyle = 'rgba(210, 180, 140, 0.6)';
+              ctx.lineWidth = size * 0.15;
+              ctx.beginPath();
+              ctx.ellipse(0, 0, size * 1.3, size * 0.3, 0, 0, Math.PI * 2);
+              ctx.stroke();
+              
+              ctx.strokeStyle = 'rgba(160, 130, 90, 0.4)';
+              ctx.lineWidth = size * 0.08;
+              ctx.beginPath();
+              ctx.ellipse(0, 0, size * 1.5, size * 0.35, 0, 0, Math.PI * 2);
+              ctx.stroke();
+              break;
+              
+            case 'neptune':
+              // Neptunusz - kék bolygó
+              const nepGrad = ctx.createRadialGradient(-size * 0.3, -size * 0.3, 0, 0, 0, size);
+              nepGrad.addColorStop(0, '#87CEEB');
+              nepGrad.addColorStop(0.6, '#4682B4');
+              nepGrad.addColorStop(1, '#191970');
+              ctx.fillStyle = nepGrad;
+              ctx.beginPath();
+              ctx.arc(0, 0, size, 0, Math.PI * 2);
+              ctx.fill();
+              
+              // Neptunusz foltok
+              ctx.fillStyle = 'rgba(25, 25, 112, 0.3)';
+              ctx.beginPath();
+              ctx.arc(size * 0.2, -size * 0.3, size * 0.2, 0, Math.PI * 2);
+              ctx.fill();
+              break;
+          }
+          
+          ctx.restore();
+        } else if (obj.type === 'station') {
+          // Űrállomás (ISS-szerű)
+          ctx.save();
+          ctx.translate(obj.x, obj.y);
+          
+          const size = obj.size || 40;
+          
+          // Központi modul
+          ctx.fillStyle = '#C0C0C0';
+          ctx.fillRect(-size * 0.4, -size * 0.2, size * 0.8, size * 0.4);
+          
+          // Napelemek
+          ctx.fillStyle = '#1E3A8A';
+          ctx.fillRect(-size * 1.2, -size * 0.5, size * 0.6, size * 1);
+          ctx.fillRect(size * 0.6, -size * 0.5, size * 0.6, size * 1);
+          
+          // Napelemek cellák
+          ctx.strokeStyle = '#60A5FA';
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 5; j++) {
+              ctx.strokeRect(-size * 1.15 + i * size * 0.15, -size * 0.4 + j * size * 0.18, size * 0.12, size * 0.15);
+              ctx.strokeRect(size * 0.65 + i * size * 0.15, -size * 0.4 + j * size * 0.18, size * 0.12, size * 0.15);
+            }
+          }
+          
+          // Ablakok
+          ctx.fillStyle = '#FFFF00';
+          ctx.fillRect(-size * 0.2, -size * 0.05, size * 0.08, size * 0.1);
+          ctx.fillRect(size * 0.12, -size * 0.05, size * 0.08, size * 0.1);
+          
+          ctx.restore();
+        } else if (obj.type === 'meteor') {
+          // Meteor
+          ctx.save();
+          ctx.translate(obj.x, obj.y);
+          if (obj.rotation) ctx.rotate(obj.rotation);
+          
+          const size = obj.size || 4;
+          
+          // Meteor test
+          ctx.fillStyle = '#696969';
+          ctx.beginPath();
+          ctx.arc(0, 0, size, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Meteor kráterek
+          ctx.fillStyle = '#505050';
+          ctx.beginPath();
+          ctx.arc(size * 0.3, size * 0.2, size * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Tűzcsóva
+          const trailGrad = ctx.createLinearGradient(size, 0, size * 4, 0);
+          trailGrad.addColorStop(0, 'rgba(255, 100, 0, 0.8)');
+          trailGrad.addColorStop(0.5, 'rgba(255, 200, 0, 0.4)');
+          trailGrad.addColorStop(1, 'rgba(255, 255, 0, 0)');
+          ctx.fillStyle = trailGrad;
+          ctx.beginPath();
+          ctx.moveTo(size, 0);
+          ctx.lineTo(size * 4, -size * 0.5);
+          ctx.lineTo(size * 4, size * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          
+          ctx.restore();
+        } else if (obj.type === 'nebula') {
+          // Nebula köd
+          const size = obj.size || 80;
+          const color = obj.color || 'rgba(138,43,226,0.15)';
+          
+          ctx.save();
+          const nebulaGrad = ctx.createRadialGradient(obj.x, obj.y, 0, obj.x, obj.y, size);
+          nebulaGrad.addColorStop(0, color.replace('0.15', '0.25'));
+          nebulaGrad.addColorStop(0.5, color);
+          nebulaGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          
+          ctx.fillStyle = nebulaGrad;
+          ctx.beginPath();
+          ctx.arc(obj.x, obj.y, size, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Második réteg másik pozícióban
+          ctx.fillStyle = nebulaGrad;
+          ctx.beginPath();
+          ctx.arc(obj.x + size * 0.3, obj.y - size * 0.2, size * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.restore();
       }
     });
     
