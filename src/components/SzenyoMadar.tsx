@@ -248,8 +248,28 @@ interface BackgroundObj {
   x: number;
   y: number;
   type: 'cloud' | 'star';
-  size: number;
-  speed: number;
+  size?: number;
+  speed?: number;
+}
+
+// ===== 🚀 SPACE ENEMY SYSTEM =====
+// Űrhajó ellenség
+interface SpaceShip {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  shootCooldown: number;
+  active: boolean;
+}
+
+// Űrhajó lövedék
+interface EnemyBullet {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  active: boolean;
 }
 
 // ===== 🐦 BIRD SYSTEM =====
@@ -736,6 +756,7 @@ export default function SzenyoMadar() {
     // Combat and special abilities
     lives: 1, // alap 1 élet
     maxLives: 1, // maximum lives
+    invulnerable: 0, // invulnerability frames after hit
     autoShieldTimer: 0, // auto shield countdown
     bullets: [] as {x: number, y: number, vx: number, vy: number, life: number}[], // bullets for rambo
     canShoot: false, // shooting ability
@@ -789,6 +810,10 @@ export default function SzenyoMadar() {
   
   // Háttér objektumok
   const bgObjects = useRef<BackgroundObj[]>([]);
+  
+  // Űrhajó ellenség és lövedékei
+  const spaceShip = useRef<SpaceShip>({ x: 0, y: 0, vx: 0, vy: 0, shootCooldown: 0, active: false });
+  const enemyBullets = useRef<EnemyBullet[]>([]);
   
   // Idő és effektek
   const time = useRef({ 
@@ -1488,14 +1513,28 @@ export default function SzenyoMadar() {
 
   // Háttér objektumok generálása
   const spawnBackgroundObject = useCallback(() => {
-    if (bgObjects.current.length < 5 && Math.random() < 0.01) {
-      bgObjects.current.push({
-        x: world.current.w + 20,
-        y: 20 + Math.random() * 100,
-        type: Math.random() < 0.7 ? 'cloud' : 'star',
-        size: 8 + Math.random() * 16,
-        speed: 0.2 + Math.random() * 0.3
-      });
+    const isSpace = currentBiome.current.id === 'space';
+    
+    if (bgObjects.current.length < (isSpace ? 20 : 5) && Math.random() < (isSpace ? 0.02 : 0.01)) {
+      if (isSpace) {
+        // Űr biome: csillagok spawn
+        bgObjects.current.push({
+          x: world.current.w + 20,
+          y: Math.random() * (world.current.h - world.current.groundH),
+          type: 'star',
+          size: 1 + Math.random() * 3,
+          speed: 0.1 + Math.random() * 0.2
+        });
+      } else {
+        // Többi biome: felhők
+        bgObjects.current.push({
+          x: world.current.w + 20,
+          y: 20 + Math.random() * 100,
+          type: 'cloud',
+          size: 8 + Math.random() * 16,
+          speed: 0.2 + Math.random() * 0.3
+        });
+      }
     }
   }, []);
 
@@ -1530,6 +1569,7 @@ export default function SzenyoMadar() {
       comboWindow: 0,
       lives: 1 + extraLives,
       maxLives: 1 + extraLives,
+      invulnerable: 0,
       autoShieldTimer: currentSkin?.abilities.autoShield ? (currentSkin.abilities.autoShield * 60) : 0,
       bullets: [],
       canShoot: currentSkin?.abilities.canShoot || false,
@@ -1940,19 +1980,37 @@ export default function SzenyoMadar() {
     // Remove expired bullets
     b.bullets = b.bullets.filter(bullet => bullet.life > 0 && bullet.x < w.w + 50);
     
-    // Bullet collision with pipes
+    // Bullet collision with pipes and asteroids
     b.bullets.forEach(bullet => {
       pipes.current.forEach((pipe, pipeIndex) => {
-        if (bullet.x + 3 > pipe.x && bullet.x - 3 < pipe.x + w.pipeW) {
-          if (bullet.y - 3 < pipe.top || bullet.y + 3 > pipe.top + w.gap) {
-            // Hit pipe - remove it and bullet
-            pipes.current.splice(pipeIndex, 1);
-            bullet.life = 0;
-            createParticles(bullet.x, bullet.y, 8, '#FF8800', 'explosion');
-            playSound(200, 0.2, 'hit');
-            // Bonus points for destroying obstacles
-            setScore(prev => prev + 2);
+        let hit = false;
+        
+        if (pipe.type === 'asteroid' && pipe.centerY !== undefined && pipe.radius !== undefined) {
+          // Aszteroida ütközés - körkörös
+          const dx = bullet.x - (pipe.x + w.pipeW / 2);
+          const dy = bullet.y - pipe.centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < pipe.radius) {
+            hit = true;
           }
+        } else {
+          // Hagyományos akadály ütközés
+          if (bullet.x + 3 > pipe.x && bullet.x - 3 < pipe.x + w.pipeW) {
+            if (bullet.y - 3 < pipe.top || bullet.y + 3 > pipe.top + w.gap) {
+              hit = true;
+            }
+          }
+        }
+        
+        if (hit) {
+          // Hit obstacle - remove it and bullet
+          pipes.current.splice(pipeIndex, 1);
+          bullet.life = 0;
+          createParticles(bullet.x, bullet.y, 8, '#FF8800', 'explosion');
+          playSound(200, 0.2, 'hit');
+          // Bonus points for destroying obstacles
+          setScore(prev => prev + 2);
         }
       });
     });
@@ -2221,6 +2279,7 @@ export default function SzenyoMadar() {
     if (b.magnet > 0) b.magnet--;
     if (b.doublePoints > 0) b.doublePoints--;
     if (b.rainbow > 0) b.rainbow--;
+    if (b.invulnerable > 0) b.invulnerable--;
     if (time.current.cameraShake > 0) time.current.cameraShake--;
     if (b.comboWindow > 0) b.comboWindow--; // Combo window countdown
     
@@ -2232,9 +2291,106 @@ export default function SzenyoMadar() {
     // Háttér objektumok (fix 60 FPS)
     spawnBackgroundObject();
     bgObjects.current.forEach(obj => {
-      obj.x -= obj.speed * gameSpeed;
+      obj.x -= (obj.speed || 1) * gameSpeed;
     });
     bgObjects.current = bgObjects.current.filter(obj => obj.x > -50);
+    
+    // ŰRHAJÓ ELLENSÉG - csak űr biome-ban
+    if (currentBiome.current.id === 'space') {
+      const ship = spaceShip.current;
+      
+      // Űrhajó spawn
+      if (!ship.active && Math.random() < 0.005) { // 0.5% esély frame-enként
+        ship.x = w.w + 50;
+        ship.y = 100 + Math.random() * (w.h - w.groundH - 200);
+        ship.vx = -1.5;
+        ship.vy = 0;
+        ship.shootCooldown = 120; // 2 sec @ 60fps
+        ship.active = true;
+      }
+      
+      // Űrhajó mozgás
+      if (ship.active) {
+        ship.x += ship.vx;
+        ship.y += ship.vy;
+        
+        // Követi a madarat lassan
+        const targetY = b.y;
+        const dyToTarget = targetY - ship.y;
+        ship.vy += Math.sign(dyToTarget) * 0.05;
+        ship.vy *= 0.95; // Damping
+        
+        // Lövés
+        ship.shootCooldown--;
+        if (ship.shootCooldown <= 0) {
+          // Lő a madár felé
+          const dx = b.x - ship.x;
+          const dy = b.y - ship.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          enemyBullets.current.push({
+            x: ship.x,
+            y: ship.y,
+            vx: (dx / dist) * 4, // Lövedék sebesség
+            vy: (dy / dist) * 4,
+            active: true
+          });
+          playSound(200, 0.1, 'hit');
+          ship.shootCooldown = 120 + Math.random() * 60; // 2-3 sec
+        }
+        
+        // Deactivate ha kimegy a képből
+        if (ship.x < -100) {
+          ship.active = false;
+        }
+      }
+      
+      // Ellenséges lövedékek mozgása
+      enemyBullets.current.forEach(bullet => {
+        if (bullet.active) {
+          bullet.x += bullet.vx;
+          bullet.y += bullet.vy;
+          
+          // Ütközés a madárral
+          const dx = bullet.x - b.x;
+          const dy = bullet.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < b.r + 5) {
+            bullet.active = false;
+            
+            // Pajzs véd
+            if (b.shield > 0) {
+              b.shield = 0;
+              playSound(700, 0.15, 'hit');
+              createParticles(b.x, b.y, 15, '#00FFFF', 'explosion');
+            } else if (b.invulnerable > 0) {
+              // Védő buff véd
+              playSound(800, 0.1, 'hit');
+            } else {
+              // Életet veszít
+              b.lives--;
+              if (b.lives > 0) {
+                b.invulnerable = 120; // 2 sec védelem
+                playSound(400, 0.2, 'hit');
+                createParticles(b.x, b.y, 10, '#FF0000', 'explosion');
+                time.current.cameraShake = 15;
+              } else {
+                // Game Over
+                setState(GameState.GAMEOVER);
+                localStorage.setItem('szenyo_madar_best', Math.max(score, parseInt(localStorage.getItem('szenyo_madar_best') || '0')).toString());
+              }
+            }
+          }
+          
+          // Kimegy a képből
+          if (bullet.x < -50 || bullet.x > w.w + 50 || bullet.y < -50 || bullet.y > w.h + 50) {
+            bullet.active = false;
+          }
+        }
+      });
+      
+      enemyBullets.current = enemyBullets.current.filter(b => b.active);
+    }
     
     spawnWeatherParticles(); // Weather effektek
     
@@ -2461,30 +2617,53 @@ export default function SzenyoMadar() {
     
     // Háttér objektumok renderelése
     bgObjects.current.forEach(obj => {
-        ctx.fillStyle = obj.type === 'cloud' ? 'rgba(255,255,255,0.6)' : '#FFFF99';
         if (obj.type === 'cloud') {
-          // Egyszerű felhő
+          // Felhő
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
           ctx.beginPath();
-          ctx.arc(obj.x, obj.y, obj.size * 0.6, 0, Math.PI * 2);
-          ctx.arc(obj.x + obj.size * 0.5, obj.y, obj.size * 0.4, 0, Math.PI * 2);
-          ctx.arc(obj.x - obj.size * 0.3, obj.y, obj.size * 0.3, 0, Math.PI * 2);
+          ctx.arc(obj.x, obj.y, (obj.size || 12) * 0.6, 0, Math.PI * 2);
+          ctx.arc(obj.x + (obj.size || 12) * 0.5, obj.y, (obj.size || 12) * 0.4, 0, Math.PI * 2);
+          ctx.arc(obj.x - (obj.size || 12) * 0.3, obj.y, (obj.size || 12) * 0.3, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // Csillag
-          const spikes = 5;
-        const outerRadius = obj.size * 0.5;
-        const innerRadius = outerRadius * 0.4;
-        ctx.beginPath();
-        for (let i = 0; i < spikes * 2; i++) {
-          const radius = i % 2 === 0 ? outerRadius : innerRadius;
-          const angle = (i * Math.PI) / spikes;
-          const x = obj.x + Math.cos(angle) * radius;
-          const y = obj.y + Math.sin(angle) * radius;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.fill();
+          // Csillag (űr biome)
+          if (currentBiome.current.id === 'space') {
+            // Egyszerű villogó pont
+            const twinkle = Math.sin(time.current.frameCount * 0.1 + obj.x * 0.01) * 0.5 + 0.5;
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + twinkle * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(obj.x, obj.y, (obj.size || 2), 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Kereszt alakú csillogás nagyobb csillagoknál
+            if ((obj.size || 2) > 2) {
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.3 + twinkle * 0.3})`;
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(obj.x - 4, obj.y);
+              ctx.lineTo(obj.x + 4, obj.y);
+              ctx.moveTo(obj.x, obj.y - 4);
+              ctx.lineTo(obj.x, obj.y + 4);
+              ctx.stroke();
+            }
+          } else {
+            // Sárga csillag más biome-okhoz
+            ctx.fillStyle = '#FFFF99';
+            const spikes = 5;
+            const outerRadius = (obj.size || 8) * 0.5;
+            const innerRadius = outerRadius * 0.4;
+            ctx.beginPath();
+            for (let i = 0; i < spikes * 2; i++) {
+              const radius = i % 2 === 0 ? outerRadius : innerRadius;
+              const angle = (i * Math.PI) / spikes;
+              const x = obj.x + Math.cos(angle) * radius;
+              const y = obj.y + Math.sin(angle) * radius;
+              if (i === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
       }
     });
     
@@ -4106,6 +4285,93 @@ export default function SzenyoMadar() {
       ctx.fill();
     });
     
+    // 🛸 UFO SPACESHIP RENDERING
+    if (spaceShip.current.active) {
+      const ship = spaceShip.current;
+      ctx.save();
+      ctx.translate(ship.x, ship.y);
+      
+      // Alsó lámpa/fény
+      const lightPulse = Math.sin(time.current.frameCount * 0.2) * 0.5 + 0.5;
+      ctx.fillStyle = `rgba(255, 255, 100, ${0.3 + lightPulse * 0.3})`;
+      ctx.beginPath();
+      ctx.ellipse(0, 8, 15, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Alsó test (ezüst)
+      ctx.fillStyle = '#C0C0C0';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 20, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Alsó test árnyék
+      ctx.fillStyle = '#808080';
+      ctx.beginPath();
+      ctx.ellipse(0, 2, 18, 6, 0, 0, Math.PI);
+      ctx.fill();
+      
+      // Felső kupola (kék)
+      ctx.fillStyle = '#4169E1';
+      ctx.beginPath();
+      ctx.ellipse(0, -6, 12, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Kupola fény
+      ctx.fillStyle = '#87CEEB';
+      ctx.beginPath();
+      ctx.ellipse(-3, -8, 4, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Felső test keret
+      ctx.strokeStyle = '#696969';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 20, 8, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Kis ablakok körben
+      ctx.fillStyle = '#1E90FF';
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const wx = Math.cos(angle) * 12;
+        const wy = Math.sin(angle) * 4;
+        ctx.beginPath();
+        ctx.arc(wx, wy, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      ctx.restore();
+    }
+    
+    // 💥 ENEMY BULLETS RENDERING
+    enemyBullets.current.forEach(bullet => {
+      if (bullet.active) {
+        ctx.save();
+        ctx.translate(bullet.x, bullet.y);
+        
+        // Piros energia lövedék
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Belső fény
+        ctx.fillStyle = '#FF6666';
+        ctx.beginPath();
+        ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Energia aura
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+    });
+    
     // Lives indicator (for Robot Bird)
     if (b.maxLives > 1) {
       ctx.save();
@@ -4132,11 +4398,148 @@ export default function SzenyoMadar() {
       ctx.restore();
     }
     
-    // Advanced grass system
-    const grassTime = performance.now() - grassStartTime.current;
-    drawSoilGradient(ctx, w.w, w.h, w.groundH);
-    drawGrassLayer(ctx, grassLayers.current[0], grassTime); // Background layer
-    drawGrassLayer(ctx, grassLayers.current[1], grassTime); // Foreground layer
+    // Ground rendering - biome függő
+    if (currentBiome.current.id === 'space') {
+      // Holdfelület az űr biome-ban
+      const y0 = w.h - w.groundH;
+      
+      // Alap holdfelület színek
+      const gradient = ctx.createLinearGradient(0, y0, 0, w.h);
+      gradient.addColorStop(0, '#6B6B6B');
+      gradient.addColorStop(0.3, '#5A5A5A');
+      gradient.addColorStop(1, '#3A3A3A');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, y0, w.w, w.groundH);
+      
+      // Kráterek és kőzetek a holdfelületen
+      ctx.fillStyle = '#4A4A4A';
+      for (let i = 0; i < 15; i++) {
+        const x = (i * 87 + time.current.frameCount * 0.1) % w.w;
+        const craterSize = 8 + (i % 3) * 4;
+        ctx.beginPath();
+        ctx.arc(x, y0 + 15, craterSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Belső árnyék
+        ctx.fillStyle = '#2A2A2A';
+        ctx.beginPath();
+        ctx.arc(x + 2, y0 + 17, craterSize * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#4A4A4A';
+      }
+      
+      // Kövek/sziklák
+      ctx.fillStyle = '#787878';
+      for (let i = 0; i < 20; i++) {
+        const x = (i * 63 + time.current.frameCount * 0.1) % w.w;
+        const rockSize = 3 + (i % 4) * 2;
+        const y = y0 + 5 + (i % 3) * 5;
+        ctx.fillRect(x, y, rockSize, rockSize * 0.8);
+      }
+      
+      // Finom por/dust textúra
+      ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+      for (let i = 0; i < 50; i++) {
+        const x = (i * 41 + time.current.frameCount * 0.05) % w.w;
+        const y = y0 + Math.random() * w.groundH;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    } else if (currentBiome.current.id === 'city') {
+      // Aszfaltos városi felület autókkal és smoggal
+      const y0 = w.h - w.groundH;
+      
+      // Aszfalt alap
+      const asphaltGradient = ctx.createLinearGradient(0, y0, 0, w.h);
+      asphaltGradient.addColorStop(0, '#2C2C2C');
+      asphaltGradient.addColorStop(0.5, '#3A3A3A');
+      asphaltGradient.addColorStop(1, '#1A1A1A');
+      ctx.fillStyle = asphaltGradient;
+      ctx.fillRect(0, y0, w.w, w.groundH);
+      
+      // Útfestés - sárga csíkok
+      ctx.fillStyle = '#FFD700';
+      for (let i = 0; i < 10; i++) {
+        const x = (i * 80 + time.current.frameCount * 0.15) % w.w;
+        ctx.fillRect(x, y0 + w.groundH / 2 - 1, 30, 2);
+      }
+      
+      // Aszfalt repedések
+      ctx.strokeStyle = '#1A1A1A';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        const x = (i * 110 + 50) % w.w;
+        ctx.beginPath();
+        ctx.moveTo(x, y0 + 5);
+        ctx.lineTo(x + 15, y0 + 15);
+        ctx.lineTo(x + 10, y0 + 25);
+        ctx.stroke();
+      }
+      
+      // Autók az aszfalton
+      const carColors = ['#FF4444', '#4444FF', '#44FF44', '#FFFF44', '#FF44FF'];
+      for (let i = 0; i < 6; i++) {
+        const x = (i * 130 + time.current.frameCount * 0.1) % w.w;
+        const carY = y0 + 8;
+        const carW = 24;
+        const carH = 12;
+        
+        // Autó teste
+        ctx.fillStyle = carColors[i % carColors.length];
+        ctx.fillRect(x, carY, carW, carH);
+        
+        // Autó teteje (ablak)
+        ctx.fillStyle = '#333355';
+        ctx.fillRect(x + 4, carY + 2, carW - 8, carH - 6);
+        
+        // Kerekek
+        ctx.fillStyle = '#1A1A1A';
+        ctx.fillRect(x + 2, carY + carH - 2, 4, 3);
+        ctx.fillRect(x + carW - 6, carY + carH - 2, 4, 3);
+        
+        // Fényszórók
+        ctx.fillStyle = '#FFFF99';
+        ctx.fillRect(x + carW - 1, carY + 3, 1, 2);
+        ctx.fillRect(x + carW - 1, carY + 7, 1, 2);
+      }
+      
+      // Felszálló smog részecskék
+      ctx.fillStyle = 'rgba(100, 100, 100, 0.4)';
+      for (let i = 0; i < 30; i++) {
+        const baseX = (i * 47 + time.current.frameCount * 0.1) % w.w;
+        const t = (time.current.frameCount * 0.02 + i) % 100;
+        const x = baseX + Math.sin(t * 0.3) * 5;
+        const y = y0 - (t * 2); // Felfelé száll
+        const size = 2 + Math.sin(t * 0.5) * 1;
+        
+        if (y > y0 - 80) { // Csak a földhöz közeli smog látszik
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      
+      // Nagyobb smog felhők
+      ctx.fillStyle = 'rgba(80, 80, 80, 0.3)';
+      for (let i = 0; i < 10; i++) {
+        const baseX = (i * 73 + time.current.frameCount * 0.08) % w.w;
+        const t = (time.current.frameCount * 0.015 + i * 10) % 120;
+        const x = baseX + Math.sin(t * 0.2) * 8;
+        const y = y0 - (t * 1.5);
+        const size = 6 + Math.sin(t * 0.3) * 2;
+        
+        if (y > y0 - 100) {
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else {
+      // Fű rendszer erdő biome-hoz
+      const grassTime = performance.now() - grassStartTime.current;
+      drawSoilGradient(ctx, w.w, w.h, w.groundH);
+      drawGrassLayer(ctx, grassLayers.current[0], grassTime); // Background layer
+      drawGrassLayer(ctx, grassLayers.current[1], grassTime); // Foreground layer
+    }
     
     ctx.restore();
   }, [debug, getCurrentBirdSkin]);
