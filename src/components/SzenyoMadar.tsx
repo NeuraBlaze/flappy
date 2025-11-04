@@ -695,7 +695,7 @@ export default function SzenyoMadar() {
       bodyColor: "#C0C0C0",
       wingColor: "#00FF00",
       unlockRequirement: { type: "achievement", value: "coin_collector" },
-      abilities: { antiGravity: true, abductionBeam: true, warpSpeed: 5, gravity: 0.3 },
+      abilities: { antiGravity: true, abductionBeam: true, warpSpeed: 5, gravity: 0.3, canShoot: true },
       description: "Földönkívüli technológia és anti-gravitáció!"
     },
     {
@@ -2031,8 +2031,14 @@ export default function SzenyoMadar() {
       bullet.y += bullet.vy * gameSpeed;
       bullet.life--;
     });
-    // Remove expired bullets
-    b.bullets = b.bullets.filter(bullet => bullet.life > 0 && bullet.x < w.w + 50);
+    // Remove expired bullets or bullets that went off screen
+    b.bullets = b.bullets.filter(bullet => 
+      bullet.life > 0 && 
+      bullet.x < w.w + 50 && 
+      bullet.x > -50 &&
+      bullet.y > -50 &&
+      bullet.y < w.h + 50
+    );
     
     // Bullet collision with pipes and asteroids
     b.bullets.forEach(bullet => {
@@ -4915,9 +4921,33 @@ export default function SzenyoMadar() {
           e.preventDefault();
           if (currentSkin?.abilities.warpSpeed && b.warpJumpsLeft > 0) {
             b.warpJumpsLeft--;
-            b.x += 150; // Quick forward movement
-            createParticles(b.x, b.y, 12, '#00FF00', 'trail');
-            playSound(800, 0.2, 'powerup');
+            
+            // Warp forward, de ne mehessen a képernyőn kívülre
+            const warpDistance = 150;
+            const newX = Math.min(b.x + warpDistance, world.current.w - 50); // ne menjen túl messzire jobbra
+            
+            // Check if there's an obstacle in the way
+            let canWarp = true;
+            pipes.current.forEach(pipe => {
+              if (pipe.x < newX + b.r && pipe.x + world.current.pipeW > newX - b.r) {
+                // There's a pipe in the way, check if we can fit through the gap
+                if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + world.current.gap) {
+                  canWarp = false; // Would hit pipe
+                }
+              }
+            });
+            
+            if (canWarp) {
+              b.x = newX;
+              b.invulnerable = 30; // 0.5s invulnerability after warp
+              createParticles(b.x, b.y, 20, '#00FF00', 'trail');
+              createParticles(b.x - warpDistance/2, b.y, 15, '#00FFFF', 'sparkle');
+              playSound(800, 0.2, 'powerup');
+            } else {
+              // Warp blocked, refund the use
+              b.warpJumpsLeft++;
+              playSound(200, 0.1, 'hit');
+            }
           }
           break;
         case 'KeyP':
@@ -5307,7 +5337,7 @@ export default function SzenyoMadar() {
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div className="text-center text-white">
               <h1 className="pixel-text text-4xl md:text-6xl mb-8 animate-float">
-                🐦 SZENYO-MADÁR
+                🐦 Szenyó Madár
               </h1>
               <p className="pixel-text text-lg mb-8">
                 Kattints vagy nyomd meg a SPACE-t az ugráshoz!
@@ -5808,10 +5838,89 @@ export default function SzenyoMadar() {
         
         {/* Control hints */}
         {state === GameState.RUN && (
-          <div className="absolute bottom-4 left-4 text-white text-sm pixel-text opacity-75">
-            P = Szünet | D = Debug
-            {bird.current.canShoot && <div>X/S = Lövés</div>}
-          </div>
+          <>
+            <div className="absolute bottom-4 left-4 text-white text-sm pixel-text opacity-75">
+              P = Szünet | D = Debug
+              {bird.current.canShoot && <div>X/S = Lövés</div>}
+              {getCurrentBirdSkin()?.abilities.warpSpeed && bird.current.warpJumpsLeft > 0 && <div>F = Warp</div>}
+            </div>
+            
+            {/* Touch Controls - UFO képességek */}
+            {(() => {
+              const currentSkin = getCurrentBirdSkin();
+              if (!currentSkin) return null;
+              
+              return (
+                <div className="absolute bottom-20 left-0 right-0 flex justify-between px-4 pointer-events-none">
+                  {/* Bal oldali gombok - Warp */}
+                  {currentSkin.abilities.warpSpeed && bird.current.warpJumpsLeft > 0 && (
+                    <button
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        const b = bird.current;
+                        if (b.warpJumpsLeft > 0) {
+                          b.warpJumpsLeft--;
+                          const warpDistance = 150;
+                          const newX = Math.min(b.x + warpDistance, world.current.w - 50);
+                          
+                          let canWarp = true;
+                          pipes.current.forEach(pipe => {
+                            if (pipe.x < newX + b.r && pipe.x + world.current.pipeW > newX - b.r) {
+                              if (b.y - b.r < pipe.top || b.y + b.r > pipe.top + world.current.gap) {
+                                canWarp = false;
+                              }
+                            }
+                          });
+                          
+                          if (canWarp) {
+                            b.x = newX;
+                            b.invulnerable = 30;
+                            createParticles(b.x, b.y, 20, '#00FF00', 'trail');
+                            createParticles(b.x - warpDistance/2, b.y, 15, '#00FFFF', 'sparkle');
+                            playSound(800, 0.2, 'powerup');
+                          } else {
+                            b.warpJumpsLeft++;
+                            playSound(200, 0.1, 'hit');
+                          }
+                        }
+                      }}
+                      className="pointer-events-auto bg-purple-600 bg-opacity-75 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold shadow-lg border-2 border-purple-400 active:scale-95 transition-transform"
+                    >
+                      <div className="text-center">
+                        <div>🚀</div>
+                        <div className="text-xs">{bird.current.warpJumpsLeft}</div>
+                      </div>
+                    </button>
+                  )}
+                  
+                  {/* Jobb oldali gombok - Lövés */}
+                  {currentSkin.abilities.canShoot && (
+                    <button
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        const b = bird.current;
+                        if (b.canShoot && b.shootCooldown <= 0) {
+                          b.bullets.push({
+                            x: b.x + 20,
+                            y: b.y,
+                            vx: 8,
+                            vy: 0,
+                            life: 120 // 2 seconds lifetime
+                          });
+                          b.shootCooldown = 15;
+                          playSound(600, 0.1, 'powerup');
+                          createParticles(b.x + 20, b.y, 5, '#FF0000', 'explosion');
+                        }
+                      }}
+                      className="pointer-events-auto bg-red-600 bg-opacity-75 text-white rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold shadow-lg border-2 border-red-400 active:scale-95 transition-transform"
+                    >
+                      💥
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+          </>
         )}
         
         {/* FPS kijelző - jobb felső sarok - valós render FPS */}
