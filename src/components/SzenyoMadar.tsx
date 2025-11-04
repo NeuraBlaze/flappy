@@ -89,11 +89,11 @@ const GameState = {
 // Jövőbeli BiomeManager.tsx komponens
 // Biome típusok
 interface Biome {
-  id: 'forest' | 'city'; // space és ocean eltávolítva mert nem működnek
+  id: 'forest' | 'city' | 'space'; // space hozzáadva
   name: string;
   backgroundColors: string[];
-  obstacleTypes: ('pipe' | 'tree' | 'building')[];
-  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog')[];
+  obstacleTypes: ('pipe' | 'tree' | 'building' | 'asteroid')[];
+  weatherTypes: ('clear' | 'rain' | 'snow' | 'fog' | 'stars')[];
   powerUpBonus: number; // power-up spawn rate multiplier
   musicTheme: string;
   particleColor: string;
@@ -205,7 +205,7 @@ interface Particle {
   maxLife: number;
   color: string;
   size: number;
-  type?: 'rain' | 'snow' | 'fog' | 'sparkle' | 'explosion' | 'trail';
+  type?: 'rain' | 'snow' | 'fog' | 'sparkle' | 'explosion' | 'trail' | 'stars';
 }
 
 // ===== 💎 POWER-UP SYSTEM =====
@@ -775,8 +775,8 @@ export default function SzenyoMadar() {
   const [fps, setFps] = useState(60);
   const fpsCounter = useRef({ frames: 0, lastTime: performance.now() });
 
-  // Akadályok (csövek / háztömbök)
-  const pipes = useRef<{ x: number; top: number; passed: boolean; type: string; biome: string }[]>([]);
+  // Akadályok (csövek / háztömbök / aszteroidák)
+  const pipes = useRef<{ x: number; top: number; passed: boolean; type: string; biome: string; centerY?: number; radius?: number }[]>([]);
   
   // Részecskék
   const particles = useRef<Particle[]>([]);
@@ -1195,7 +1195,7 @@ export default function SzenyoMadar() {
 
   // Weather rendszer
   const weather = useRef({
-    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog',
+    type: 'clear' as 'clear' | 'rain' | 'snow' | 'fog' | 'stars',
     intensity: 0,
     particles: [] as Particle[]
   });
@@ -1221,6 +1221,16 @@ export default function SzenyoMadar() {
       powerUpBonus: 1.0,
       musicTheme: 'urban',
       particleColor: '#00FFFF'
+    },
+    {
+      id: 'space',
+      name: 'Világűr',
+      backgroundColors: ['#0a0a1f', '#1a1a3e', '#2a2a5e'],
+      obstacleTypes: ['asteroid'],
+      weatherTypes: ['stars'],
+      powerUpBonus: 1.5,
+      musicTheme: 'space',
+      particleColor: '#9966FF'
     }
   ]);
 
@@ -1455,6 +1465,19 @@ export default function SzenyoMadar() {
             type: 'fog'
           };
           break;
+        case 'stars':
+          particle = {
+            x: w.w + 20,
+            y: Math.random() * (w.h - w.groundH),
+            vx: -0.2 - Math.random() * 0.3,
+            vy: 0,
+            life: 500,
+            maxLife: 500,
+            color: Math.random() > 0.3 ? '#FFFFFF' : (Math.random() > 0.5 ? '#FFD700' : '#87CEEB'),
+            size: 0.5 + Math.random() * 2,
+            type: 'stars'
+          };
+          break;
         default:
           return;
       }
@@ -1670,6 +1693,17 @@ export default function SzenyoMadar() {
         
         if (hitTrunk || hitUpperFoliage || hitLowerFoliage || hitUpperBranch || hitLowerBranch) {
           return true;
+        }
+      } else if (pipe.type === 'asteroid') {
+        // Aszteroida: körkörös ütközés detektálás
+        if (pipe.centerY && pipe.radius) {
+          const dx = b.x - (pipe.x + w.pipeW / 2);
+          const dy = b.y - pipe.centerY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < b.r + pipe.radius) {
+            return true;
+          }
         }
       } else {
         // Normál csövek esetében a teljes szélességben ütközés
@@ -2058,22 +2092,39 @@ export default function SzenyoMadar() {
     
     // Új cső generálás - biome alapú
     if (pipes.current.length === 0 || pipes.current[pipes.current.length - 1].x < w.w - w.pipeSpace) {
-      const minTop = 40;
-      const maxTop = w.h - w.groundH - w.gap - 40;
-      const top = minTop + Math.random() * (maxTop - minTop);
-      
       // Biome-based obstacle type selection
       const biome = currentBiome.current;
       const obstacleTypes = biome.obstacleTypes;
       const selectedType = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
       
-      pipes.current.push({
-        x: w.w,
-        top,
-        passed: false,
-        type: selectedType,
-        biome: biome.id
-      });
+      if (selectedType === 'asteroid') {
+        // Aszteroida: lebegő elem a képernyő közepén, felülről és alulról kerülhető
+        const centerY = w.h / 2 - w.groundH / 2 + (Math.random() - 0.5) * 100; // Kis variáció
+        const radius = 35 + Math.random() * 15; // Változó méret
+        
+        pipes.current.push({
+          x: w.w,
+          top: centerY - radius - w.gap / 2, // Felső határ
+          passed: false,
+          type: selectedType,
+          biome: biome.id,
+          centerY: centerY,
+          radius: radius
+        });
+      } else {
+        // Hagyományos akadályok (cső, fa, épület)
+        const minTop = 40;
+        const maxTop = w.h - w.groundH - w.gap - 40;
+        const top = minTop + Math.random() * (maxTop - minTop);
+        
+        pipes.current.push({
+          x: w.w,
+          top,
+          passed: false,
+          type: selectedType,
+          biome: biome.id
+        });
+      }
     }
     
     // Pontszám számítás
@@ -2592,240 +2643,57 @@ export default function SzenyoMadar() {
           break;
           
         case 'asteroid':
-          // Valódi aszteroida akadályok - nem cső formájú!
-          const asteroidSize = 35 + Math.sin(time.current.frameCount * 0.02 + pipe.x * 0.01) * 5;
-          
-          // Felső aszteroida
-          ctx.save();
-          ctx.translate(pipe.x + w.pipeW/2, pipe.top - 25);
-          ctx.rotate(time.current.frameCount * 0.01 + pipe.x * 0.001);
-          
-          ctx.fillStyle = '#8B7D6B';
-          ctx.beginPath();
-          const sides1 = 12;
-          for (let i = 0; i < sides1; i++) {
-            const angle = (i / sides1) * Math.PI * 2;
-            const radius = asteroidSize + Math.sin(i * 1.7 + pipe.x * 0.01) * 8;
-            const x = Math.cos(angle) * radius;
-            const y = Math.sin(angle) * radius;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-          ctx.fill();
-          
-          // Kraters
-          ctx.fillStyle = '#696969';
-          ctx.beginPath();
-          ctx.arc(-12, -8, 6, 0, Math.PI * 2);
-          ctx.arc(15, 10, 4, 0, Math.PI * 2);
-          ctx.arc(-5, 12, 3, 0, Math.PI * 2);
-          ctx.fill();
-          
-          // Bright spots (metal ore)
-          ctx.fillStyle = '#A0A0A0';
-          ctx.beginPath();
-          ctx.arc(8, -15, 2, 0, Math.PI * 2);
-          ctx.arc(-18, 3, 2, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.restore();
-          
-          // Alsó aszteroida - másik méret és forma
-          ctx.save();
-          ctx.translate(pipe.x + w.pipeW/2, pipe.top + w.gap + 25);
-          ctx.rotate(time.current.frameCount * -0.008 + pipe.x * 0.002);
-          
-          const lowerAsteroidSize = 32 + Math.cos(time.current.frameCount * 0.015 + pipe.x * 0.01) * 4;
-          ctx.fillStyle = '#7A6F5D';
-          ctx.beginPath();
-          const sides2 = 10;
-          for (let i = 0; i < sides2; i++) {
-            const angle = (i / sides2) * Math.PI * 2;
-            const radius = lowerAsteroidSize + Math.sin(i * 2.1 + pipe.x * 0.015) * 6;
-            const x = Math.cos(angle) * radius;
-            const y = Math.sin(angle) * radius;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.closePath();
-          ctx.fill();
-          
-          // Kraters
-          ctx.fillStyle = '#5A5A5A';
-          ctx.beginPath();
-          ctx.arc(-10, -6, 5, 0, Math.PI * 2);
-          ctx.arc(12, 8, 3, 0, Math.PI * 2);
-          ctx.arc(3, -12, 4, 0, Math.PI * 2);
-          ctx.fill();
-          
-          // Ice spots (frozen areas)
-          ctx.fillStyle = '#B0E0E6';
-          ctx.beginPath();
-          ctx.arc(-15, 5, 1.5, 0, Math.PI * 2);
-          ctx.arc(8, 12, 1, 0, Math.PI * 2);
-          ctx.fill();
-          
-          ctx.restore();
-          
-          // TELJES HITBOX KITÖLTÉSE TÖRMELÉKEKKEL - Egyértelmű repülési terület
-          // Felső aszteroida teljes hitbox területe - 0-től pipe.top-ig
-          for (let y = 0; y < pipe.top; y += 12) {
-            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 15) {
-              // Különböző méretű és színű törmelékek
-              const seed = (x * 0.1 + y * 0.2 + pipe.x * 0.01);
-              const debrisSize = 4 + Math.sin(seed) * 6 + Math.cos(seed * 1.5) * 3; // 1-13 pixel
-              const debrisX = x + Math.sin(time.current.frameCount * 0.02 + seed) * 8;
-              const debrisY = y + Math.cos(time.current.frameCount * 0.015 + seed * 1.3) * 6;
-              
-              // Színvariációk
-              const colorVariant = Math.floor((seed * 10) % 4);
-              let debrisColor: string;
-              switch(colorVariant) {
-                case 0: debrisColor = '#666666'; break; // Sötét szürke
-                case 1: debrisColor = '#808080'; break; // Közép szürke  
-                case 2: debrisColor = '#999999'; break; // Világos szürke
-                default: debrisColor = '#4A4A4A'; break; // Nagyon sötét
-              }
-              ctx.fillStyle = debrisColor;
-              
-              ctx.save();
-              ctx.translate(debrisX, debrisY);
-              ctx.rotate(time.current.frameCount * 0.01 + seed);
-              
-              // Különböző alakzatok
-              const shape = Math.floor((seed * 7) % 5);
-              switch(shape) {
-                case 0: // Négyzet
-                  ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize, debrisSize);
-                  break;
-                case 1: // Kör
-                  ctx.beginPath();
-                  ctx.arc(0, 0, debrisSize/2, 0, Math.PI * 2);
-                  ctx.fill();
-                  break;
-                case 2: // Háromszög
-                  ctx.beginPath();
-                  ctx.moveTo(0, -debrisSize/2);
-                  ctx.lineTo(-debrisSize/2, debrisSize/2);
-                  ctx.lineTo(debrisSize/2, debrisSize/2);
-                  ctx.closePath();
-                  ctx.fill();
-                  break;
-                case 3: // Rombusz
-                  ctx.beginPath();
-                  ctx.moveTo(0, -debrisSize/2);
-                  ctx.lineTo(debrisSize/2, 0);
-                  ctx.lineTo(0, debrisSize/2);
-                  ctx.lineTo(-debrisSize/2, 0);
-                  ctx.closePath();
-                  ctx.fill();
-                  break;
-                case 4: // Téglatest
-                  ctx.fillRect(-debrisSize/3, -debrisSize/2, debrisSize * 0.66, debrisSize);
-                  break;
-              }
-              ctx.restore();
-            }
-          }
-          
-          // Alsó aszteroida teljes hitbox területe - pipe.top + gap-től a földig
-          for (let y = pipe.top + w.gap; y < w.h - w.groundH; y += 12) {
-            for (let x = pipe.x; x < pipe.x + w.pipeW; x += 15) {
-              // Különböző méretű és színű törmelékek
-              const seed = (x * 0.15 + y * 0.25 + pipe.x * 0.012);
-              const debrisSize = 3 + Math.sin(seed * 1.2) * 7 + Math.cos(seed * 0.8) * 4; // 1-14 pixel
-              const debrisX = x + Math.sin(time.current.frameCount * 0.018 + seed) * 7;
-              const debrisY = y + Math.cos(time.current.frameCount * 0.012 + seed * 1.1) * 5;
-              
-              // Másik színpaletta az alsó részhez
-              const colorVariant = Math.floor((seed * 12) % 4);
-              let debrisColor: string;
-              switch(colorVariant) {
-                case 0: debrisColor = '#555555'; break; // Sötétebb szürke
-                case 1: debrisColor = '#777777'; break; // Közép
-                case 2: debrisColor = '#8A8A8A'; break; // Világosabb
-                default: debrisColor = '#3C3C3C'; break; // Legdöntebb
-              }
-              ctx.fillStyle = debrisColor;
-              
-              ctx.save();
-              ctx.translate(debrisX, debrisY);
-              ctx.rotate(time.current.frameCount * -0.008 + seed * 1.3);
-              
-              // Más alakzatok az alsó részben
-              const shape = Math.floor((seed * 9) % 6);
-              switch(shape) {
-                case 0: // Hosszúkás téglalap
-                  ctx.fillRect(-debrisSize/4, -debrisSize/2, debrisSize/2, debrisSize);
-                  break;
-                case 1: // Ellipszis
-                  ctx.beginPath();
-                  ctx.ellipse(0, 0, debrisSize/2, debrisSize/3, 0, 0, Math.PI * 2);
-                  ctx.fill();
-                  break;
-                case 2: // Pentagram
-                  ctx.beginPath();
-                  for (let i = 0; i < 5; i++) {
-                    const angle = (i * Math.PI * 2) / 5;
-                    const radius = i % 2 === 0 ? debrisSize/2 : debrisSize/4;
-                    const px = Math.cos(angle) * radius;
-                    const py = Math.sin(angle) * radius;
-                    if (i === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
-                  }
-                  ctx.closePath();
-                  ctx.fill();
-                  break;
-                case 3: // Hexagon
-                  ctx.beginPath();
-                  for (let i = 0; i < 6; i++) {
-                    const angle = (i * Math.PI * 2) / 6;
-                    const px = Math.cos(angle) * debrisSize/2;
-                    const py = Math.sin(angle) * debrisSize/2;
-                    if (i === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
-                  }
-                  ctx.closePath();
-                  ctx.fill();
-                  break;
-                case 4: // L-alakzat
-                  ctx.fillRect(-debrisSize/2, -debrisSize/2, debrisSize/3, debrisSize);
-                  ctx.fillRect(-debrisSize/2, debrisSize/3, debrisSize, debrisSize/3);
-                  break;
-                case 5: // Plus alakzat
-                  ctx.fillRect(-debrisSize/6, -debrisSize/2, debrisSize/3, debrisSize);
-                  ctx.fillRect(-debrisSize/2, -debrisSize/6, debrisSize, debrisSize/3);
-                  break;
-              }
-              ctx.restore();
-            }
-          }
-          
-          // Extra sűrű kis részecskék a sarkokhoz és szélehez
-          for (let i = 0; i < 40; i++) {
-            // Felső rész szélei
-            const edgeX = pipe.x + (i % 2 === 0 ? 0 : w.pipeW) + Math.sin(time.current.frameCount * 0.05 + i) * 3;
-            const edgeY = Math.random() * pipe.top;
-            const particleSize = 1 + Math.random() * 2;
+          // Lebegő aszteroida a képernyő közepén - felülről és alulról kerülhető!
+          if (pipe.centerY && pipe.radius) {
+            ctx.save();
+            ctx.translate(pipe.x + w.pipeW/2, pipe.centerY);
+            ctx.rotate(time.current.frameCount * 0.01 + pipe.x * 0.001);
             
-            ctx.fillStyle = '#333333';
-            ctx.globalAlpha = 0.7;
+            // Fő aszteroida test
+            ctx.fillStyle = '#8B7D6B';
             ctx.beginPath();
-            ctx.arc(edgeX, edgeY, particleSize, 0, Math.PI * 2);
+            const sides = 14;
+            for (let i = 0; i < sides; i++) {
+              const angle = (i / sides) * Math.PI * 2;
+              const radiusVariation = pipe.radius + Math.sin(i * 1.7 + pipe.x * 0.01) * (pipe.radius * 0.15);
+              const x = Math.cos(angle) * radiusVariation;
+              const y = Math.sin(angle) * radiusVariation;
+              if (i === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
             ctx.fill();
-            ctx.globalAlpha = 1.0;
             
-            // Alsó rész szélei
-            const lowerEdgeX = pipe.x + (i % 2 === 0 ? 0 : w.pipeW) + Math.cos(time.current.frameCount * 0.04 + i * 1.5) * 3;
-            const lowerEdgeY = pipe.top + w.gap + Math.random() * (w.h - w.groundH - pipe.top - w.gap);
-            
-            ctx.fillStyle = '#2A2A2A';
-            ctx.globalAlpha = 0.8;
+            // Kraters (több, változó méretű)
+            ctx.fillStyle = '#696969';
             ctx.beginPath();
-            ctx.arc(lowerEdgeX, lowerEdgeY, particleSize, 0, Math.PI * 2);
+            ctx.arc(-pipe.radius * 0.3, -pipe.radius * 0.2, pipe.radius * 0.15, 0, Math.PI * 2);
+            ctx.arc(pipe.radius * 0.4, pipe.radius * 0.25, pipe.radius * 0.1, 0, Math.PI * 2);
+            ctx.arc(-pipe.radius * 0.15, pipe.radius * 0.35, pipe.radius * 0.08, 0, Math.PI * 2);
+            ctx.arc(pipe.radius * 0.2, -pipe.radius * 0.4, pipe.radius * 0.12, 0, Math.PI * 2);
             ctx.fill();
-            ctx.globalAlpha = 1.0;
+            
+            // Fénylő érc foltok
+            ctx.fillStyle = '#A0A0A0';
+            ctx.beginPath();
+            ctx.arc(pipe.radius * 0.25, -pipe.radius * 0.45, pipe.radius * 0.06, 0, Math.PI * 2);
+            ctx.arc(-pipe.radius * 0.5, pipe.radius * 0.1, pipe.radius * 0.05, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Jég foltok (világoskék)
+            ctx.fillStyle = '#B0E0E6';
+            ctx.beginPath();
+            ctx.arc(-pipe.radius * 0.4, pipe.radius * 0.15, pipe.radius * 0.04, 0, Math.PI * 2);
+            ctx.arc(pipe.radius * 0.3, pipe.radius * 0.3, pipe.radius * 0.03, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Árnyék (mélység illúzió)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.beginPath();
+            ctx.ellipse(pipe.radius * 0.1, pipe.radius * 0.1, pipe.radius * 0.7, pipe.radius * 0.6, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
           }
           break;
           
@@ -3604,6 +3472,13 @@ export default function SzenyoMadar() {
           
           // Alsó ágak
           ctx.strokeRect(pipe.x + 1, pipe.top + w.gap + 8, 12, 4);
+        } else if (pipe.type === 'asteroid') {
+          // Aszteroida: körkörös hitbox
+          if (pipe.centerY && pipe.radius) {
+            ctx.beginPath();
+            ctx.arc(pipe.x + w.pipeW / 2, pipe.centerY, pipe.radius, 0, Math.PI * 2);
+            ctx.stroke();
+          }
         } else {
           // Normál csövek esetében
           ctx.strokeRect(pipe.x, 0, w.pipeW, pipe.top);
@@ -3732,6 +3607,19 @@ export default function SzenyoMadar() {
           ctx.beginPath();
           ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
           ctx.fill();
+          break;
+        case 'stars':
+          // Csillagok az űrben
+          ctx.fillStyle = particle.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+          // Kis csillogás effekt
+          if (Math.random() > 0.7) {
+            ctx.fillStyle = 'rgba(255, 255, 255, ' + (alpha * 0.8) + ')';
+            ctx.fillRect(particle.x - particle.size * 2, particle.y, particle.size * 4, 0.5);
+            ctx.fillRect(particle.x, particle.y - particle.size * 2, 0.5, particle.size * 4);
+          }
           break;
       }
       ctx.restore();
