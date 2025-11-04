@@ -5152,6 +5152,7 @@ export default function SzenyoMadar() {
               <div className="text-white text-xs font-bold mt-1 opacity-75">
                 {currentBiome.current.id === 'forest' && '🌲 Varázserdő'}
                 {currentBiome.current.id === 'city' && '🏙️ Cyber Város'}
+                {currentBiome.current.id === 'space' && '🚀 Világűr'}
                 {score >= 10 && (
                   <div className="text-yellow-400 text-xs">
                     Következő biome: {Math.floor((score + 10) / 10) * 10} pont
