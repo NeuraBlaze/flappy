@@ -267,6 +267,28 @@ interface SpaceShip {
   active: boolean;
 }
 
+// Sas ellenség (erdő biome)
+interface Eagle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  active: boolean;
+  attacking: boolean;
+  targetY: number;
+}
+
+// Helikopter ellenség (város biome)
+interface Helicopter {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotorAngle: number;
+  shootCooldown: number;
+  active: boolean;
+}
+
 // Űrhajó lövedék
 interface EnemyBullet {
   x: number;
@@ -818,6 +840,20 @@ export default function SzenyoMadar() {
   // Űrhajó ellenség és lövedékei
   const spaceShip = useRef<SpaceShip>({ x: 0, y: 0, vx: 0, vy: 0, shootCooldown: 0, active: false });
   const enemyBullets = useRef<EnemyBullet[]>([]);
+  
+  // Sas ellenség (erdő biome)
+  const eagle = useRef<Eagle>({ x: 0, y: 0, vx: 0, vy: 0, active: false, attacking: false, targetY: 0 });
+  
+  // Helikopter ellenség (város biome)
+  const helicopter = useRef<Helicopter>({ x: 0, y: 0, vx: 0, vy: 0, rotorAngle: 0, shootCooldown: 0, active: false });
+  
+  // Biome átmenet smooth animációhoz
+  const biomeTransition = useRef({
+    inProgress: false,
+    progress: 0,
+    prevColors: ['#87CEEB', '#87CEEB', '#228B22'], // Kezdő erdő színek
+    targetColors: ['#87CEEB', '#87CEEB', '#228B22']
+  });
   
   // Idő és effektek
   const time = useRef({ 
@@ -2374,8 +2410,8 @@ export default function SzenyoMadar() {
     if (currentBiome.current.id === 'space') {
       const ship = spaceShip.current;
       
-      // Űrhajó spawn - mindig a madár előtt
-      if (!ship.active && Math.random() < 0.008) { // 0.8% esély frame-enként
+      // Űrhajó spawn - mindig a madár előtt (RITKA!)
+      if (!ship.active && Math.random() < 0.002) { // 0.2% esély frame-enként (~1 minden 8 másodpercben)
         ship.x = b.x + 200 + Math.random() * 100; // Madár előtt 200-300px-re
         ship.y = 100 + Math.random() * (w.h - w.groundH - 200);
         ship.vx = 0.5; // Lassan jobbra mozog
@@ -2399,6 +2435,35 @@ export default function SzenyoMadar() {
         // Ha túl messze kerül a madártól, újrapozícionálja
         if (ship.x < b.x - 50 || ship.x > b.x + 400) {
           ship.x = b.x + 250;
+        }
+        
+        // Ütközés a madárral
+        const dx = ship.x - b.x;
+        const dy = ship.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < 25) {
+          // UFO eltalálta a madarat! MINDIG eltűnik az ütközés után!
+          ship.active = false; // ELŐSZÖR deaktiváljuk!
+          
+          if (b.shield > 0) {
+            b.shield = 0;
+            createParticles(ship.x, ship.y, 15, '#00FF00', 'explosion');
+            playSound(700, 0.15, 'hit');
+          } else if (b.invulnerable > 0) {
+            playSound(800, 0.1, 'hit');
+          } else {
+            b.lives--;
+            if (b.lives > 0) {
+              b.invulnerable = 120;
+              createParticles(b.x, b.y, 10, '#FF0000', 'explosion');
+              playSound(400, 0.2, 'hit');
+              time.current.cameraShake = 15;
+            } else {
+              setState(GameState.GAMEOVER);
+              localStorage.setItem('szenyo_madar_best', Math.max(score, parseInt(localStorage.getItem('szenyo_madar_best') || '0')).toString());
+            }
+          }
         }
         
         // Lövés
@@ -2439,8 +2504,212 @@ export default function SzenyoMadar() {
           ship.active = false;
         }
       }
+    }
+    
+    // 🦅 SAS ELLENSÉG - csak erdő biome-ban
+    if (currentBiome.current.id === 'forest') {
+      const e = eagle.current;
       
-      // Ellenséges lövedékek mozgása
+      // Sas spawn - RITKA meglepetés!
+      if (!e.active && pipes.current.length > 0 && Math.random() < 0.015) { // 1.5% esély frame-enként
+        const lastPipe = pipes.current[pipes.current.length - 1];
+        // Spawn a pipe fölött, a gap közepén
+        e.x = lastPipe.x + world.current.pipeW / 2;
+        e.y = lastPipe.top + world.current.gap / 2 - 30; // Kicsit feljebb a gap közepénél
+        e.vx = -1; // Lassan balra lebeg
+        e.vy = 0;
+        e.active = true;
+        e.attacking = false;
+        e.targetY = e.y;
+      }
+      
+      // Sas mozgás és támadás
+      if (e.active) {
+        // Ha a madár a sas alá ér, lecsap rá!
+        if (!e.attacking && b.x > e.x - 40 && b.x < e.x + 40 && b.y > e.y) {
+          e.attacking = true;
+          e.targetY = b.y;
+        }
+        
+        if (e.attacking) {
+          // Gyors FÜGGŐLEGES zuhanás lefelé!
+          e.vx = 0; // NEM mozog oldalra
+          e.vy = 12; // Gyorsabb zuhanás
+          e.y += e.vy;
+          
+          // Ütközés ellenőrzés
+          const dx = e.x - b.x;
+          const dy = e.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          if (dist < 25) {
+            // A sas elkapta a madarat! MINDIG eltűnik az ütközés után!
+            e.active = false; // ELŐSZÖR deaktiváljuk!
+            
+            if (b.shield > 0) {
+              b.shield = 0;
+              createParticles(e.x, e.y, 15, '#8B4513', 'explosion');
+              playSound(700, 0.15, 'hit');
+            } else if (b.invulnerable > 0) {
+              // Védő buff
+              playSound(800, 0.1, 'hit');
+            } else {
+              // Életet veszít
+              b.lives--;
+              if (b.lives > 0) {
+                b.invulnerable = 120;
+                createParticles(b.x, b.y, 10, '#FF0000', 'explosion');
+                playSound(400, 0.2, 'hit');
+                time.current.cameraShake = 15;
+              } else {
+                // Game Over
+                setState(GameState.GAMEOVER);
+                localStorage.setItem('szenyo_madar_best', Math.max(score, parseInt(localStorage.getItem('szenyo_madar_best') || '0')).toString());
+              }
+            }
+          }
+          
+          // Eltűnik ha elmúlt a madár mellett (túl messze van X koordinátában)
+          // vagy ha a földet éri vagy kimegy a képből
+          const tooFarFromBird = Math.abs(e.x - b.x) > 60; // Ha 60 pixelnél messzebb van oldalirányban
+          if (tooFarFromBird || e.y > w.h - w.groundH || e.y > w.h + 50) {
+            e.active = false;
+          }
+        } else {
+          // Lebeg és követi a pipe-okat
+          e.x += e.vx;
+          e.vy = Math.sin(time.current.frameCount * 0.08) * 1.5;
+          e.y += e.vy;
+        }
+        
+        // Ki lehet lőni a sast!
+        b.bullets.forEach(bullet => {
+          const dx = bullet.x - e.x;
+          const dy = bullet.y - e.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 20) {
+            // Találat!
+            e.active = false;
+            bullet.life = 0;
+            createParticles(e.x, e.y, 20, '#8B4513', 'explosion');
+            playSound(800, 0.3, 'powerup');
+            setScore(prev => prev + 10); // Bónusz pontok sas lelövéséért
+          }
+        });
+        
+        // Deactivate ha kimegy a képből balra vagy elhagyja a biome-ot
+        if (e.x < -50 || currentBiome.current.id !== 'forest') {
+          e.active = false;
+        }
+      }
+    }
+    
+    // 🚁 HELIKOPTER ELLENSÉG - csak város biome-ban
+    if (currentBiome.current.id === 'city') {
+      const heli = helicopter.current;
+      
+      // Helikopter spawn (RITKA!)
+      if (!heli.active && Math.random() < 0.002) { // 0.2% esély frame-enként
+        heli.x = b.x + 250 + Math.random() * 100;
+        heli.y = 100 + Math.random() * 200;
+        heli.vx = -1.5;
+        heli.vy = 0;
+        heli.rotorAngle = 0;
+        heli.shootCooldown = 60 + Math.random() * 60; // Első lövés késleltetése
+        heli.active = true;
+      }
+      
+      // Helikopter mozgás
+      if (heli.active) {
+        // Cooldown csökkentése
+        if (heli.shootCooldown > 0) {
+          heli.shootCooldown--;
+        }
+        
+        // Követi a madarat, de mindig előtte marad
+        if (heli.x < b.x + 200) {
+          heli.x = b.x + 250;
+        }
+        
+        heli.x += heli.vx;
+        
+        // Hullámzó mozgás függőlegesen
+        heli.vy = Math.sin(time.current.frameCount * 0.05) * 2;
+        heli.y += heli.vy;
+        
+        // Rotor forog
+        heli.rotorAngle += 0.3;
+        
+        // Ütközés a madárral
+        const dx = heli.x - b.x;
+        const dy = heli.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < 25) {
+          // Helikopter eltalálta a madarat! MINDIG eltűnik az ütközés után!
+          heli.active = false; // ELŐSZÖR deaktiváljuk!
+          
+          if (b.shield > 0) {
+            b.shield = 0;
+            createParticles(heli.x, heli.y, 15, '#FFD700', 'explosion');
+            playSound(700, 0.15, 'hit');
+          } else if (b.invulnerable > 0) {
+            playSound(800, 0.1, 'hit');
+          } else {
+            b.lives--;
+            if (b.lives > 0) {
+              b.invulnerable = 120;
+              createParticles(b.x, b.y, 10, '#FF0000', 'explosion');
+              playSound(400, 0.2, 'hit');
+              time.current.cameraShake = 15;
+            } else {
+              setState(GameState.GAMEOVER);
+              localStorage.setItem('szenyo_madar_best', Math.max(score, parseInt(localStorage.getItem('szenyo_madar_best') || '0')).toString());
+            }
+          }
+        }
+        
+        // Helikopter lövés a madárra
+        if (heli.shootCooldown <= 0) {
+          // Lő a madár felé
+          const dx = b.x - heli.x;
+          const dy = b.y - heli.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          enemyBullets.current.push({
+            x: heli.x,
+            y: heli.y + 5, // Kicsit lejjebb, a helikopter aljából
+            vx: (dx / dist) * 3.5, // Lövedék sebesség
+            vy: (dy / dist) * 3.5,
+            active: true
+          });
+          playSound(220, 0.12, 'hit');
+          heli.shootCooldown = 90 + Math.random() * 60; // 1.5-2.5 sec
+        }
+        
+        // Ki lehet lőni a helikoptert!
+        b.bullets.forEach(bullet => {
+          const dx = bullet.x - heli.x;
+          const dy = bullet.y - heli.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 25) {
+            // Találat!
+            heli.active = false;
+            bullet.life = 0;
+            createParticles(heli.x, heli.y, 25, '#FFD700', 'explosion');
+            playSound(800, 0.3, 'powerup');
+            setScore(prev => prev + 8); // Bónusz pontok helikopter lelövéséért
+          }
+        });
+        
+        // Deactivate ha kimegy a képből vagy elhagyja a biome-ot
+        if (heli.x < -50 || currentBiome.current.id !== 'city') {
+          heli.active = false;
+        }
+      }
+    }
+    
+    // Ellenséges lövedékek mozgása (space és city biome-ban)
+    if (currentBiome.current.id === 'space' || currentBiome.current.id === 'city') {
       enemyBullets.current.forEach(bullet => {
         if (bullet.active) {
           bullet.x += bullet.vx;
@@ -2512,6 +2781,12 @@ export default function SzenyoMadar() {
       const newBiome = biomes.current[nextBiomeIndex];
       
       if (currentBiome.current.id !== newBiome.id) {
+        // Biome átmenet indítása
+        biomeTransition.current.inProgress = true;
+        biomeTransition.current.progress = 0;
+        biomeTransition.current.prevColors = [...currentBiome.current.backgroundColors];
+        biomeTransition.current.targetColors = [...newBiome.backgroundColors];
+        
         currentBiome.current = newBiome;
         
         // Weather változtatás biome alapján
@@ -2524,6 +2799,24 @@ export default function SzenyoMadar() {
         // Particle effekt biome váltáskor
         createParticles(b.x, b.y, 20, newBiome.particleColor, 'sparkle');
         playSound(800, 0.3, 'powerup');
+        
+        // Töröljük az ellenséges lövedékeket biome váltáskor
+        enemyBullets.current.forEach(bullet => bullet.active = false);
+        enemyBullets.current = enemyBullets.current.filter(b => b.active);
+        
+        // Deaktiváljuk az összes ellenséget biome váltáskor
+        spaceShip.current.active = false;
+        eagle.current.active = false;
+        helicopter.current.active = false;
+      }
+    }
+    
+    // Biome átmenet animáció frissítése
+    if (biomeTransition.current.inProgress) {
+      biomeTransition.current.progress += 0.05; // 20 frame alatt (~0.33 sec)
+      if (biomeTransition.current.progress >= 1) {
+        biomeTransition.current.inProgress = false;
+        biomeTransition.current.progress = 1;
       }
     }
     
@@ -2656,6 +2949,15 @@ export default function SzenyoMadar() {
     const biome = currentBiome.current;
     let colors = [...biome.backgroundColors];
     
+    // Ha biome átmenet van folyamatban, interpoláljuk a színeket
+    if (biomeTransition.current.inProgress) {
+      const t = biomeTransition.current.progress;
+      colors = colors.map((targetColor, i) => {
+        const prevColor = biomeTransition.current.prevColors[i];
+        return interpolateColor(prevColor, targetColor, t);
+      });
+    }
+    
     // Weather color modifications
     switch (weather.current.type) {
       case 'rain':
@@ -2687,6 +2989,25 @@ export default function SzenyoMadar() {
     }
     
     // Helper functions for color manipulation
+    function interpolateColor(color1: string, color2: string, t: number): string {
+      const num1 = parseInt(color1.replace("#", ""), 16);
+      const num2 = parseInt(color2.replace("#", ""), 16);
+      
+      const r1 = (num1 >> 16);
+      const g1 = ((num1 >> 8) & 0x00FF);
+      const b1 = (num1 & 0x0000FF);
+      
+      const r2 = (num2 >> 16);
+      const g2 = ((num2 >> 8) & 0x00FF);
+      const b2 = (num2 & 0x0000FF);
+      
+      const r = Math.round(r1 + (r2 - r1) * t);
+      const g = Math.round(g1 + (g2 - g1) * t);
+      const b = Math.round(b1 + (b2 - b1) * t);
+      
+      return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+    }
+    
     function darkenColor(hex: string, amount: number): string {
       const num = parseInt(hex.replace("#", ""), 16);
       const r = Math.max(0, (num >> 16) - Math.floor(255 * amount));
@@ -4635,7 +4956,178 @@ export default function SzenyoMadar() {
       ctx.restore();
     }
     
-    // 💥 ENEMY BULLETS RENDERING
+    // 🦅 SAS ELLENSÉG RENDERING - Pixel Art stílus
+    if (eagle.current.active) {
+      const e = eagle.current;
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      
+      if (e.attacking) {
+        // TÁMADÁS - Lecsapó pixel art sas
+        // Test - barna
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-8, -4, 16, 10);
+        
+        // Fej - sötétbarna
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(-10, -8, 8, 6);
+        
+        // Csőr - sárga
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-14, -6, 4, 3);
+        
+        // Szem - fehér
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-9, -7, 2, 2);
+        
+        // Pupilla - fekete
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(-9, -7, 1, 1);
+        
+        // Zárt szárnyak - sötét
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(-12, -2, 4, 8);
+        ctx.fillRect(8, -2, 4, 8);
+        
+        // Fehér csíkok a szárnyon
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-11, 2, 3, 2);
+        ctx.fillRect(9, 2, 3, 2);
+        
+        // Lábak/karmok - sárga
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-4, 8, 2, 4);
+        ctx.fillRect(2, 8, 2, 4);
+        
+        // Vörös aura támadáskor
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-14, -10, 28, 24);
+      } else {
+        // LEBEGÉS - Kiterjesztett szárnyak pixel art
+        const wingFlap = Math.sin(time.current.frameCount * 0.15);
+        const wingOffset = Math.floor(wingFlap * 3);
+        
+        // Bal szárny - barna, kiterjesztve
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-24, -8 + wingOffset, 12, 6);
+        ctx.fillRect(-20, -6 + wingOffset, 8, 4);
+        
+        // Bal szárny fehér csíkok
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-22, -6 + wingOffset, 8, 2);
+        
+        // Test - barna
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-8, -4, 16, 10);
+        
+        // Jobb szárny - barna, kiterjesztve
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(12, -8 - wingOffset, 12, 6);
+        ctx.fillRect(12, -6 - wingOffset, 8, 4);
+        
+        // Jobb szárny fehér csíkok
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(14, -6 - wingOffset, 8, 2);
+        
+        // Fej - sötétbarna
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(-10, -8, 8, 6);
+        
+        // Csőr - sárga
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-14, -6, 4, 3);
+        
+        // Szem - fehér
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-9, -7, 3, 3);
+        
+        // Pupilla - fekete
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(-8, -6, 1, 1);
+        
+        // Lábak - sárga
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-4, 8, 2, 3);
+        ctx.fillRect(2, 8, 2, 3);
+      }
+      
+      ctx.restore();
+    }
+    
+    // � HELIKOPTER ELLENSÉG RENDERING
+    if (helicopter.current.active) {
+      const heli = helicopter.current;
+      ctx.save();
+      ctx.translate(heli.x, heli.y);
+      
+      // Főrotor (forgó) - kék pixel art
+      ctx.save();
+      ctx.rotate(heli.rotorAngle);
+      const rotorBlur = Math.abs(Math.sin(heli.rotorAngle * 4)) > 0.5;
+      ctx.fillStyle = rotorBlur ? 'rgba(135, 206, 250, 0.3)' : '#87CEEB';
+      
+      // Rotor lapátok pixel art
+      ctx.fillRect(-20, -2, 40, 4);
+      ctx.fillRect(-2, -20, 4, 40);
+      
+      // Rotor tengely
+      ctx.fillStyle = '#333333';
+      ctx.fillRect(-2, -2, 4, 4);
+      ctx.restore();
+      
+      // Főtest - piros
+      ctx.fillStyle = '#DC143C';
+      ctx.fillRect(-12, 0, 24, 12);
+      
+      // Felső sötétebb rész
+      ctx.fillStyle = '#B22222';
+      ctx.fillRect(-10, 0, 20, 4);
+      
+      // Kabin/ablak - világoskék
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillRect(-10, 4, 8, 6);
+      
+      // Ablak keret
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-10, 4, 8, 6);
+      
+      // Ajtó/dekoráció
+      ctx.fillStyle = '#8B0000';
+      ctx.fillRect(4, 4, 6, 6);
+      
+      // Farok - piros
+      ctx.fillStyle = '#DC143C';
+      ctx.fillRect(12, 4, 12, 4);
+      
+      // Farok vég - sötétebb
+      ctx.fillStyle = '#B22222';
+      ctx.fillRect(20, 4, 4, 4);
+      
+      // Farokrotor - kék (forgó)
+      ctx.save();
+      ctx.translate(26, 6);
+      ctx.rotate(heli.rotorAngle * 2);
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillRect(-4, -1, 8, 2);
+      ctx.fillRect(-1, -4, 2, 8);
+      ctx.restore();
+      
+      // Leszállótalp - fekete
+      ctx.fillStyle = '#333333';
+      ctx.fillRect(-12, 12, 2, 4);
+      ctx.fillRect(10, 12, 2, 4);
+      ctx.fillRect(-14, 16, 28, 2);
+      
+      // Leszállótalp csövek
+      ctx.fillRect(-8, 12, 2, 4);
+      ctx.fillRect(6, 12, 2, 4);
+      
+      ctx.restore();
+    }
+    
+    // �💥 ENEMY BULLETS RENDERING
     enemyBullets.current.forEach(bullet => {
       if (bullet.active) {
         ctx.save();
