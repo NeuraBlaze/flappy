@@ -662,7 +662,7 @@ export default function SzenyoMadar() {
       bodyColor: "#8B0000",
       wingColor: "#FF0000",
       unlockRequirement: { type: "score", value: 666 },
-      abilities: { lifeSteal: true, darkAura: 50, shadowTeleport: 3, extraLives: 1 },
+      abilities: { lifeSteal: true, darkAura: 50, shadowTeleport: 3, extraLives: 1, canShoot: true },
       description: "Hamarosan...",
       comingSoon: true
     },
@@ -1653,7 +1653,7 @@ export default function SzenyoMadar() {
     
     // Set starting biome
     currentBiome.current = biomes.current[startingBiome];
-    biomeTransitionScore.current = -10; // Reset transition score
+    biomeTransitionScore.current = -25; // Reset transition score
     
     // Kezdő háttér objektumok
     bgObjects.current = [];
@@ -2071,6 +2071,13 @@ export default function SzenyoMadar() {
           playSound(200, 0.2, 'hit');
           // Bonus points for destroying obstacles
           setScore(prev => prev + 2);
+          
+          // 😈 DEMON BIRD - Life Steal: akadály megsemmisítéskor +1 élet (max-ig)
+          if (currentSkin.abilities.lifeSteal && b.lives < b.maxLives) {
+            b.lives++;
+            createParticles(b.x, b.y, 8, '#FF0000', 'sparkle');
+            playSound(800, 0.15, 'powerup');
+          }
         }
       });
     });
@@ -2367,11 +2374,11 @@ export default function SzenyoMadar() {
     if (currentBiome.current.id === 'space') {
       const ship = spaceShip.current;
       
-      // Űrhajó spawn
-      if (!ship.active && Math.random() < 0.005) { // 0.5% esély frame-enként
-        ship.x = w.w + 50;
+      // Űrhajó spawn - mindig a madár előtt
+      if (!ship.active && Math.random() < 0.008) { // 0.8% esély frame-enként
+        ship.x = b.x + 200 + Math.random() * 100; // Madár előtt 200-300px-re
         ship.y = 100 + Math.random() * (w.h - w.groundH - 200);
-        ship.vx = -1.5;
+        ship.vx = 0.5; // Lassan jobbra mozog
         ship.vy = 0;
         ship.shootCooldown = 120; // 2 sec @ 60fps
         ship.active = true;
@@ -2379,14 +2386,20 @@ export default function SzenyoMadar() {
       
       // Űrhajó mozgás
       if (ship.active) {
+        // Tartja a pozícióját a madár előtt
         ship.x += ship.vx;
+        
+        // Fel-le mozgás (sine wave)
+        ship.vy = Math.sin(time.current.frameCount * 0.05) * 2;
         ship.y += ship.vy;
         
-        // Követi a madarat lassan
-        const targetY = b.y;
-        const dyToTarget = targetY - ship.y;
-        ship.vy += Math.sign(dyToTarget) * 0.05;
-        ship.vy *= 0.95; // Damping
+        // Korlátozza a magasságot
+        ship.y = Math.max(80, Math.min(w.h - w.groundH - 80, ship.y));
+        
+        // Ha túl messze kerül a madártól, újrapozícionálja
+        if (ship.x < b.x - 50 || ship.x > b.x + 400) {
+          ship.x = b.x + 250;
+        }
         
         // Lövés
         ship.shootCooldown--;
@@ -2406,8 +2419,23 @@ export default function SzenyoMadar() {
           ship.shootCooldown = 120 + Math.random() * 60; // 2-3 sec
         }
         
-        // Deactivate ha kimegy a képből
-        if (ship.x < -100) {
+        // Ütközés játékos lövedékekkel
+        b.bullets.forEach(bullet => {
+          const dx = bullet.x - ship.x;
+          const dy = bullet.y - ship.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 20) {
+            // Találat!
+            ship.active = false;
+            bullet.life = 0;
+            createParticles(ship.x, ship.y, 20, '#00FF00', 'explosion');
+            playSound(800, 0.3, 'powerup');
+            setScore(prev => prev + 5); // Bónusz pontok UFO lelövéséért
+          }
+        });
+        
+        // Deactivate ha elhagyja a biome-ot
+        if (currentBiome.current.id !== 'space') {
           ship.active = false;
         }
       }
@@ -2434,6 +2462,10 @@ export default function SzenyoMadar() {
             } else if (b.invulnerable > 0) {
               // Védő buff véd
               playSound(800, 0.1, 'hit');
+            } else if (b.darkAuraActive && Math.random() < 0.5) {
+              // 😈 DEMON BIRD - Dark Aura 50% esély elkerülni a találatot
+              playSound(600, 0.2, 'powerup');
+              createParticles(b.x, b.y, 12, '#8B0000', 'sparkle');
             } else {
               // Életet veszít
               b.lives--;
@@ -2473,10 +2505,10 @@ export default function SzenyoMadar() {
     });
     weather.current.particles = weather.current.particles.filter(p => p.life > 0 && p.x > -50 && p.y < world.current.h + 20);
     
-    // Biome transitions (minden 10 pontnál)
-    if (score > biomeTransitionScore.current + 10 && score > 0) {
+    // Biome transitions (minden 25 pontnál)
+    if (score > biomeTransitionScore.current + 25 && score > 0) {
       biomeTransitionScore.current = score;
-      const nextBiomeIndex = Math.floor(score / 10) % biomes.current.length;
+      const nextBiomeIndex = Math.floor(score / 25) % biomes.current.length;
       const newBiome = biomes.current[nextBiomeIndex];
       
       if (currentBiome.current.id !== newBiome.id) {
@@ -4950,6 +4982,16 @@ export default function SzenyoMadar() {
             }
           }
           break;
+        case 'KeyG': // Unicorn Bird - Magic Horn Shield
+          e.preventDefault();
+          if (currentSkin?.abilities.magicHorn && b.hornActive) {
+            b.shield = (currentSkin.abilities.shieldDuration ?? 1.5) * 60; // Convert to frames
+            b.hornActive = false;
+            b.hornCooldown = (currentSkin.abilities.hornCooldown ?? 20) * 60; // Convert to frames
+            createParticles(b.x, b.y, 20, '#FFB6C1', 'sparkle');
+            playSound(900, 0.3, 'powerup');
+          }
+          break;
         case 'KeyP':
           togglePause();
           break;
@@ -5183,9 +5225,9 @@ export default function SzenyoMadar() {
                 {currentBiome.current.id === 'forest' && '🌲 Varázserdő'}
                 {currentBiome.current.id === 'city' && '🏙️ Cyber Város'}
                 {currentBiome.current.id === 'space' && '🚀 Világűr'}
-                {score >= 10 && (
+                {score >= 25 && (
                   <div className="text-yellow-400 text-xs">
-                    Következő biome: {Math.floor((score + 10) / 10) * 10} pont
+                    Következő biome: {Math.floor((score + 25) / 25) * 25} pont
                   </div>
                 )}
               </div>
