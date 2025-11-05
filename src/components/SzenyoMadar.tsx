@@ -2777,7 +2777,9 @@ export default function SzenyoMadar() {
     // Biome transitions (minden 25 pontnál)
     if (score > biomeTransitionScore.current + 25 && score > 0) {
       biomeTransitionScore.current = score;
-      const nextBiomeIndex = Math.floor(score / 25) % biomes.current.length;
+      // Kezdő biomból indulva számolunk tovább
+      const biomesSinceStart = Math.floor(score / 25);
+      const nextBiomeIndex = (startingBiome + biomesSinceStart) % biomes.current.length;
       const newBiome = biomes.current[nextBiomeIndex];
       
       if (currentBiome.current.id !== newBiome.id) {
@@ -5717,7 +5719,7 @@ export default function SzenyoMadar() {
                 {currentBiome.current.id === 'forest' && '🌲 Varázserdő'}
                 {currentBiome.current.id === 'city' && '🏙️ Cyber Város'}
                 {currentBiome.current.id === 'space' && '🚀 Világűr'}
-                {score >= 25 && (
+                {score >= 0 && (
                   <div className="text-yellow-400 text-xs">
                     Következő biome: {Math.floor((score + 25) / 25) * 25} pont
                   </div>
